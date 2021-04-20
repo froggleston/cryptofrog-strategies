@@ -1,6 +1,8 @@
 # cryptofrog-strategies
 CryptoFrog - My First Strategy for freqtrade
 
+NB: (2021-04-20) You'll need the latest freqtrade develop branch otherwise you might see weird "supersell" results in your backtraces. Head to the freqtrade discord for more info.
+
 Heavily borrowing ideas from:
 
 - https://github.com/werkkrew/freqtrade-strategies : Amazing work on Solipsis that influenced my general framework and custom_stoploss
@@ -11,8 +13,8 @@ Heavily borrowing ideas from:
 
 - Fairly conservative strategy focusing on longer holds to find large peaks
 - Designed to trade altcoins against stablecoins, and I've used USDT intentionally to gain relative stability within BTC/ETH dump cycles
-- Nothing major. Hyperopted with Sharpe.
-- Protections need to be enabled. Happy to share my config - hit me up on the freqtrade discord
+- Hyperopted with Sharpe.
+- Protections need to be enabled. I've included a basic template config - hit me up on the freqtrade discord for any info but no surprises expected really
 - Included a live_plotting.ipynb notebook that can be used to immediately and easily view backtest results
 
 # TODO
@@ -26,8 +28,8 @@ Heavily borrowing ideas from:
 You'll need:
 - Python 3.7+
 - Jupyter Notebook for the live_plotting.ipynb
-- Solipsis_v4 custom_indicators.py
+- Solipsis_v4 custom_indicators.py (now included in this repo - thanks for the go-ahead @werkkrew)
 - finta
-- TA-Lib
+- TA-Lib (I run my bot on a Raspberry Pi 400, so you'll need to build TA-Lib as per the Freqtrade docs if you're doing the same)
 - Pandas
 - Numpy
