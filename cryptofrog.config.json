@@ -1,0 +1,137 @@
+{
+    "max_open_trades": 10,
+    "stake_currency": "USDT",
+    "stake_amount": 150,
+    "tradable_balance_ratio": 0.99,
+    "fiat_display_currency": "GBP",
+    "dry_run": true,
+    "dry_run_wallet": 1500,
+    "unfilledtimeout": {
+        "buy": 20,
+        "sell": 40
+    },
+    "bid_strategy": {
+        "price_side" : "ask",
+        "ask_last_balance": 0.0,
+        "use_order_book": true,
+        "order_book_top": 1,
+        "check_depth_of_market": {
+            "enabled": true,
+            "bids_to_ask_delta": 1
+        }
+    },
+    "ask_strategy": {
+        "price_side" : "bid",
+        "use_order_book": true,
+        "order_book_min": 1,
+        "order_book_max": 1,
+        "use_sell_signal": true,
+        "sell_profit_only": false,
+        "ignore_roi_if_buy_signal": false
+    },
+    "exchange": {
+        "name": "",
+        "sandbox": false,
+        "key": "",
+        "secret": "",
+        "ccxt_config": {"enableRateLimit": true},
+        "ccxt_async_config": {
+            "enableRateLimit": false,
+            "rateLimit": 500
+        },
+        "pair_whitelist":[],
+        "pair_blacklist": [
+            "GBP/USDT", "EUR/USDT", "BUSD/USDT", "USDC/USDT"
+        ]
+    },
+
+    "pairlists": [
+    {
+        "method": "StaticPairList"
+    },
+//    {
+//        "method": "VolumePairList",
+//        "number_assets": 80,
+//        "sort_key": "quoteVolume",
+//        "refresh_period": 300
+//    },
+
+    {"method": "AgeFilter", "min_days_listed": 30},
+//    {"method": "PrecisionFilter"},
+    {"method": "PriceFilter", "low_price_ratio": 0.01},
+    {"method": "SpreadFilter", "max_spread_ratio": 0.003},
+//    {
+//        "method": "RangeStabilityFilter",
+//        "lookback_days": 3,
+//        "min_rate_of_change": 0.1,
+//        "refresh_period": 360
+//    },
+    ],
+
+    "protections": [
+    {
+        "method": "CooldownPeriod",
+        "stop_duration_candles": 1
+    },
+    {
+        "method": "StoplossGuard",
+        "lookback_period_candles": 48,
+        "trade_limit": 2,
+        "stop_duration_candles": 24,
+        "only_per_pair": true
+    },
+    {
+        "method": "LowProfitPairs",
+        "lookback_period_candles": 3,
+        "trade_limit": 2,
+        "stop_duration_candles": 4,
+        "required_profit": 0.015
+    },
+    {
+        "method": "LowProfitPairs",
+        "lookback_period_candles": 24,
+        "trade_limit": 3,
+        "stop_duration_candles": 12,
+        "required_profit": 0.01
+    }
+    ],
+    "edge": {
+        "enabled": false,
+        "process_throttle_secs": 3600,
+        "calculate_since_number_of_days": 10,
+        "allowed_risk": 0.02,
+        "stoploss_range_min": -0.01,
+        "stoploss_range_max": -0.3,
+        "stoploss_range_step": -0.01,
+        "minimum_winrate": 0.60,
+        "minimum_expectancy": 0.20,
+        "min_trade_number": 10,
+        "max_trade_duration_minute": 1440,
+        "remove_pumps": false
+    },
+    "api_server": {
+        "enabled": false,
+        "listen_ip_address": "127.0.0.1",
+        "listen_port": 8080,
+        "verbosity": "error",
+        "enable_openapi": false,
+        "jwt_secret_key": "",
+        "CORS_origins": [],
+        "username": "",
+        "password": ""
+    },
+    "telegram": {
+        "enabled": false,
+        "token": "",
+        "chat_id": ""
+    },
+    "initial_state": "running",
+    "forcebuy_enable": false,
+    "internals": {
+        "process_throttle_secs": 5
+    },
+    "db_url": "sqlite:///cryptofrog.sqlite",
+    "user_data_dir" : "./user_data",
+    "strategy": "CryptoFrog",
+    "strategy_path": "./user_data/strategies"
+}
