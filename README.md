@@ -13,6 +13,7 @@ Heavily borrowing ideas from:
 - Designed to trade altcoins against stablecoins, and I've used USDT intentionally to gain relative stability within BTC/ETH dump cycles
 - Nothing major. Hyperopted with Sharpe.
 - Protections need to be enabled. Happy to share my config - hit me up on the freqtrade discord
+- Included a live_plotting.ipynb notebook that can be used to immediately and easily view backtest results
 
 # TODO
 
