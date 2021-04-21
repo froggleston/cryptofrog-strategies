@@ -35,11 +35,11 @@ class CryptoFrog(IStrategy):
     # Buy hyperspace params:
     buy_params = {
         'bbw_exp_buy': True,
-        'buy_triggers': '1h_ema_check',
-        'dmi_minus': 75,
-        'fast_d_buy': 9,
-        'mfi_buy': 31,
-        'srsi_d_buy': 46
+        'buy_triggers': 'bbexp',
+        'dmi_minus': 41,
+        'fast_d_buy': 10,
+        'mfi_buy': 26,
+        'srsi_d_buy': 14
     }
     
     mfi_buy = IntParameter(0, 49, default=30, space='buy', optimize=True)
@@ -50,7 +50,12 @@ class CryptoFrog(IStrategy):
     fast_d_buy = IntParameter(0, 50, default=23, space='buy', optimize=True)
     bbw_exp_buy = CategoricalParameter([True, False], default=True, space='buy', optimize=True)
     bbw_exp_sell = CategoricalParameter([True, False], default=True, space='sell', optimize=True)
-    buy_triggers = CategoricalParameter(['ha_check', '1h_ema_check'])
+    
+    ha_check = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
+    #bbexp_check = CategoricalParameter([True, False], default=False, space='buy', optimize=True)
+    #extras_check = CategoricalParameter([True, False], default=False, space='buy', optimize=True)
+    #dip_check = CategoricalParameter([True, False], default=False, space='buy', optimize=True)
+    buy_triggers = CategoricalParameter(['bbexp', 'extras', 'diptection'], optimize=True)
     #sell_triggers = CategoricalParameter(['Smooth_HA_H', 'emac_1h', 'emao_1h'])
     
     # Stoploss:
@@ -321,40 +326,32 @@ class CryptoFrog(IStrategy):
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
         
-        if self.buy_triggers.value == 'ha_check':
+        if self.ha_check == True:
             conditions.append(
                 ## close ALWAYS needs to be lower than the heiken low at 5m
                 dataframe['close'] < dataframe['Smooth_HA_L']
             )
-        if self.buy_triggers.value == '1h_ema_check': 
             conditions.append(
                 ## Hansen's HA EMA at informative timeframe
-                dataframe['emac_1h'] < dataframe['emao_1h']                
+                dataframe['emac_1h'] < dataframe['emao_1h']
             )
-        
-        dataframe.loc[
-            (
-                reduce(lambda x, y: x & y, conditions)
-                #(
-#                    ## close ALWAYS needs to be lower than the heiken low at 5m
-#                    (dataframe['close'] < dataframe['Smooth_HA_L'])
-#                    &
-#                    ## Hansen's HA EMA at informative timeframe
-#                    (dataframe['emac_1h'] < dataframe['emao_1h'])
-#                )
+
+        if self.buy_triggers.value == 'bbexp':
+            conditions.append(
+                ((dataframe['bbw_expansion'] == self.bbw_exp_buy.value) & (dataframe['sqzmi'] == False))
                 &
                 (
-                    (
-                        ## potential uptick incoming so buy
-                        (dataframe['bbw_expansion'] == self.bbw_exp_buy.value) & (dataframe['sqzmi'] == False)
-                        &
-                        (
-                            (dataframe['mfi'] < self.mfi_buy.value)
-                            |
-                            (dataframe['dmi_minus'] > self.dmi_minus.value)
-                        )
-                    )
+                    (dataframe['mfi'] < self.mfi_buy.value)
                     |
+                    (dataframe['dmi_minus'] > self.dmi_minus.value)
+                )
+            )
+        
+        if self.buy_triggers.value == 'extras':
+            conditions.append(
+                ((dataframe['vfi'] < 0.0) & (dataframe['volume'] > 0))
+                &
+                (
                     (
                         # this tries to find extra buys in undersold regions
                         (dataframe['close'] < dataframe['sar'])
@@ -365,30 +362,39 @@ class CryptoFrog(IStrategy):
                         &
                         (dataframe['mfi'] < self.mfi_buy.value)
                     )
+                )
+            )
+            
+        if self.buy_triggers.value == 'diptection':
+            conditions.append(
+                ((dataframe['vfi'] < 0.0) & (dataframe['volume'] > 0))
+                &
+                (
+                    # find smaller temporary dips in sideways
+                    (
+                        (
+                            (dataframe['dmi_minus'] > self.dmi_minus.value)
+                            &
+                            (qtpylib.crossed_above(dataframe['dmi_minus'], dataframe['dmi_plus']))
+                        )
+                        &
+                        (dataframe['close'] < dataframe['bb_lowerband'])
+                    )
                     |
                     (
-                        # find smaller temporary dips in sideways
-                        (
-                            ((dataframe['dmi_minus'] > self.dmi_minus.value) & qtpylib.crossed_above(dataframe['dmi_minus'], dataframe['dmi_plus']))
-                            &
-                            (dataframe['close'] < dataframe['bb_lowerband'])
-                        )
-                        |
-                        (
-                            ## if nothing else is making a buy signal
-                            ## just throw in any old SQZMI shit based fastd
-                            ## this needs work!
-                            (dataframe['sqzmi'] == True)
-                            &
-                            ((dataframe['fastd'] > dataframe['fastk']) & (dataframe['fastd'] < self.fast_d_buy.value)) #20
-                        )
+                        ## if nothing else is making a buy signal
+                        ## just throw in any old SQZMI shit based fastd
+                        ## this needs work!
+                        (dataframe['sqzmi'] == True)
+                        &
+                        ((dataframe['fastd'] > dataframe['fastk']) & (dataframe['fastd'] < self.fast_d_buy.value)) #20
                     )
-                    ## volume sanity checks
-                    &
-                    (dataframe['vfi'] < 0.0)                    
-                    &
-                    (dataframe['volume'] > 0)                    
                 )
+            )
+
+        dataframe.loc[
+            (
+                reduce(lambda x, y: x & y, conditions)
             ),
             'buy'] = 1
 
