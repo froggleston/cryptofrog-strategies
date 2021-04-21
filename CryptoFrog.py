@@ -16,6 +16,9 @@ import freqtrade.vendor.qtpylib.indicators as qtpylib
 from freqtrade.exchange import timeframe_to_minutes
 from freqtrade.persistence import Trade
 
+from skopt.space import Dimension
+from functools import reduce
+
 ## Solipsis4 indicator maths
 import custom_indicators as cta
 
@@ -29,6 +32,27 @@ class CryptoFrog(IStrategy):
         "166": 0
     }
 
+    # Buy hyperspace params:
+    buy_params = {
+        'bbw_exp_buy': True,
+        'buy_triggers': '1h_ema_check',
+        'dmi_minus': 75,
+        'fast_d_buy': 9,
+        'mfi_buy': 31,
+        'srsi_d_buy': 46
+    }
+    
+    mfi_buy = IntParameter(0, 49, default=30, space='buy', optimize=True)
+    mfi_sell = IntParameter(51, 100, default=80, space='sell', optimize=True)
+    dmi_minus = IntParameter(15, 45, default=30, space='buy', optimize=True)
+    dmi_plus = IntParameter(15, 45, default=30, space='sell', optimize=True)
+    srsi_d_buy = IntParameter(0, 50, default=30, space='buy', optimize=True)
+    fast_d_buy = IntParameter(0, 50, default=23, space='buy', optimize=True)
+    bbw_exp_buy = CategoricalParameter([True, False], default=True, space='buy', optimize=True)
+    bbw_exp_sell = CategoricalParameter([True, False], default=True, space='sell', optimize=True)
+    buy_triggers = CategoricalParameter(['ha_check', '1h_ema_check'])
+    #sell_triggers = CategoricalParameter(['Smooth_HA_H', 'emac_1h', 'emao_1h'])
+    
     # Stoploss:
     stoploss = -0.085
 
@@ -189,8 +213,8 @@ class CryptoFrog(IStrategy):
                 m = bbw[i]
 
         if (bbw[-1] > (m * mult)):
-            return 1
-        return 0
+            return True
+        return False
 
     ## do_indicator style a la Obelisk strategies
     def do_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -295,25 +319,39 @@ class CryptoFrog(IStrategy):
 
     ## cryptofrog signals
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        conditions = []
+        
+        if self.buy_triggers.value == 'ha_check':
+            conditions.append(
+                ## close ALWAYS needs to be lower than the heiken low at 5m
+                dataframe['close'] < dataframe['Smooth_HA_L']
+            )
+        if self.buy_triggers.value == '1h_ema_check': 
+            conditions.append(
+                ## Hansen's HA EMA at informative timeframe
+                dataframe['emac_1h'] < dataframe['emao_1h']                
+            )
+        
         dataframe.loc[
             (
-                (
-                    ## close ALWAYS needs to be lower than the heiken low at 5m
-                    (dataframe['close'] < dataframe['Smooth_HA_L'])
-                    &
-                    ## Hansen's HA EMA at informative timeframe
-                    (dataframe['emac_1h'] < dataframe['emao_1h'])
-                )
+                reduce(lambda x, y: x & y, conditions)
+                #(
+#                    ## close ALWAYS needs to be lower than the heiken low at 5m
+#                    (dataframe['close'] < dataframe['Smooth_HA_L'])
+#                    &
+#                    ## Hansen's HA EMA at informative timeframe
+#                    (dataframe['emac_1h'] < dataframe['emao_1h'])
+#                )
                 &
                 (
                     (
                         ## potential uptick incoming so buy
-                        (dataframe['bbw_expansion'] == 1) & (dataframe['sqzmi'] == False)
+                        (dataframe['bbw_expansion'] == self.bbw_exp_buy.value) & (dataframe['sqzmi'] == False)
                         &
                         (
-                            (dataframe['mfi'] < 20)
+                            (dataframe['mfi'] < self.mfi_buy.value)
                             |
-                            (dataframe['dmi_minus'] > 30)
+                            (dataframe['dmi_minus'] > self.dmi_minus.value)
                         )
                     )
                     |
@@ -321,17 +359,17 @@ class CryptoFrog(IStrategy):
                         # this tries to find extra buys in undersold regions
                         (dataframe['close'] < dataframe['sar'])
                         &
-                        ((dataframe['srsi_d'] >= dataframe['srsi_k']) & (dataframe['srsi_d'] < 30))
+                        ((dataframe['srsi_d'] >= dataframe['srsi_k']) & (dataframe['srsi_d'] < self.srsi_d_buy.value))
                         &
-                        ((dataframe['fastd'] > dataframe['fastk']) & (dataframe['fastd'] < 23))
+                        ((dataframe['fastd'] > dataframe['fastk']) & (dataframe['fastd'] < self.fast_d_buy.value)) # 23
                         &
-                        (dataframe['mfi'] < 30)
+                        (dataframe['mfi'] < self.mfi_buy.value)
                     )
                     |
                     (
                         # find smaller temporary dips in sideways
                         (
-                            ((dataframe['dmi_minus'] > 30) & qtpylib.crossed_above(dataframe['dmi_minus'], dataframe['dmi_plus']))
+                            ((dataframe['dmi_minus'] > self.dmi_minus.value) & qtpylib.crossed_above(dataframe['dmi_minus'], dataframe['dmi_plus']))
                             &
                             (dataframe['close'] < dataframe['bb_lowerband'])
                         )
@@ -342,7 +380,7 @@ class CryptoFrog(IStrategy):
                             ## this needs work!
                             (dataframe['sqzmi'] == True)
                             &
-                            ((dataframe['fastd'] > dataframe['fastk']) & (dataframe['fastd'] < 20))
+                            ((dataframe['fastd'] > dataframe['fastk']) & (dataframe['fastd'] < self.fast_d_buy.value)) #20
                         )
                     )
                     ## volume sanity checks
@@ -371,12 +409,12 @@ class CryptoFrog(IStrategy):
                 (
                     ## try to find oversold regions with a corresponding BB expansion
                     (
-                        (dataframe['bbw_expansion'] == 1)
+                        (dataframe['bbw_expansion'] == self.bbw_exp_buy.value)
                         &
                         (
-                            (dataframe['mfi'] > 80)
+                            (dataframe['mfi'] > self.mfi_sell.value)
                             |
-                            (dataframe['dmi_plus'] > 30)
+                            (dataframe['dmi_plus'] > self.dmi_plus.value)
                         )
                     )
                     ## volume sanity checks
@@ -526,3 +564,11 @@ class CryptoFrog(IStrategy):
 
         return trade_data
     
+    # nested hyperopt class
+    class HyperOpt:
+
+        # defining as dummy, so that no error is thrown about missing
+        # sell indicator space when hyperopting for all spaces
+        @staticmethod
+        def indicator_space() -> List[Dimension]:
+            return []
