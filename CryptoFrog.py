@@ -32,10 +32,10 @@ class CryptoFrog(IStrategy):
     buy_params = {
         'bbw_exp_buy': True,
         'buy_triggers': 'bbexp',
-        'dmi_minus': 34,
-        'fast_d_buy': 42,
-        'mfi_buy': 9,
-        'srsi_d_buy': 5,
+        'dmi_minus': 30, # 34,
+        'fast_d_buy': 23, # 42,
+        'mfi_buy': 30, #9
+        'srsi_d_buy': 30, #5
         'vfi_buy': 0
     }
 
@@ -46,12 +46,12 @@ class CryptoFrog(IStrategy):
         'cstp_bail_roc': -0.05,
         'cstp_bail_time': 897,
         'cstp_threshold': -0.005,
-        'dmi_plus': 35,
+        'dmi_plus': 30, # 35,
         'droi_pullback': True,
         'droi_pullback_amount': 0.006,
         'droi_pullback_respect_table': True,
         'droi_trend_type': 'rmi',
-        'mfi_sell': 85,
+        'mfi_sell': 80, # 85,
         'vfi_sell': 0
     }
 
