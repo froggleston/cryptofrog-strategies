@@ -15,6 +15,7 @@ from freqtrade.strategy import IStrategy, merge_informative_pair, stoploss_from_
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 from freqtrade.exchange import timeframe_to_minutes
 from freqtrade.persistence import Trade
+from skopt.space import Dimension
 
 ## Solipsis4 indicator maths
 import custom_indicators as cta
@@ -525,4 +526,12 @@ class CryptoFrog(IStrategy):
                 active_trade[0].adjust_min_max_rates(current_rate)
 
         return trade_data
-    
+
+    # nested hyperopt class
+    class HyperOpt:
+
+        # defining as dummy, so that no error is thrown about missing
+        # sell indicator space when hyperopting for all spaces
+        @staticmethod
+        def indicator_space() -> List[Dimension]:
+            return []
