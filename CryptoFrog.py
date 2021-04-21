@@ -21,11 +21,6 @@ from freqtrade.persistence import Trade
 from skopt.space import Dimension
 from functools import reduce
 
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent))
-## Solipsis4 indicator maths
-import custom_indicators as cta
-
 class CryptoFrog(IStrategy):
     
     # Buy hyperspace params:
@@ -42,26 +37,18 @@ class CryptoFrog(IStrategy):
     # Sell hyperspace params:
     sell_params = {
         'bbw_exp_sell': True,
-        'cstp_bail_how': 'any',
-        'cstp_bail_roc': -0.05,
-        'cstp_bail_time': 897,
-        'cstp_threshold': -0.005,
         'dmi_plus': 30, # 35,
-        'droi_pullback': True,
-        'droi_pullback_amount': 0.006,
-        'droi_pullback_respect_table': True,
-        'droi_trend_type': 'rmi',
         'mfi_sell': 80, # 85,
         'vfi_sell': 0
     }
 
-    # ROI table:
+    # ROI table - this strat REALLY benefits from roi and trailing hyperopt:
     minimal_roi = {
-        "0": 0.243,
-        "39": 0.059,
-        "54": 0.017,
-        "170": 0
-    }  
+        "0": 0.213,
+        "39": 0.103,
+        "96": 0.037,
+        "166": 0
+    }
     
     mfi_buy = IntParameter(0, 49, default=30, space='buy', optimize=True)
     mfi_sell = IntParameter(51, 100, default=80, space='sell', optimize=True)
@@ -90,7 +77,7 @@ class CryptoFrog(IStrategy):
     use_custom_stoploss = True
     custom_stop = {
         # Linear Decay Parameters
-        'decay-time': 170,       # minutes to reach end, I find it works well to match this to the final ROI value - default 1080
+        'decay-time': 166,       # minutes to reach end, I find it works well to match this to the final ROI value - default 1080
         'decay-delay': 0,         # minutes to wait before decay starts
         'decay-start': -0.085, # -0.32118, # -0.07163,     # starting value: should be the same or smaller than initial stoploss - default -0.30
         'decay-end': -0.02,       # ending value - default -0.03
@@ -229,7 +216,7 @@ class CryptoFrog(IStrategy):
         return {'emac': dataframe['emac'], 'emao': dataframe['emao']}
     
     ## detect BB width expansion to indicate possible volatility
-    def bbw_expansion(self, bbw_rolling, mult=1.1):
+    def bbw_expansion(self, bbw_rolling, mult=1.07):
         bbw = list(bbw_rolling)
 
         m = 0.0
@@ -297,9 +284,9 @@ class CryptoFrog(IStrategy):
         ## simple ATR and ROC for stoploss
         dataframe['atr'] = ta.ATR(dataframe, timeperiod=14)
         dataframe['roc'] = ta.ROC(dataframe, timeperiod=9)        
-        dataframe['rmi'] = cta.RMI(dataframe, length=24, mom=5)
-        ssldown, sslup = cta.SSLChannels_ATR(dataframe, length=21)
-        dataframe['sroc'] = cta.SROC(dataframe, roclen=21, emalen=13, smooth=21)
+        dataframe['rmi'] = RMI(dataframe, length=24, mom=5)
+        ssldown, sslup = SSLChannels_ATR(dataframe, length=21)
+        dataframe['sroc'] = SROC(dataframe, roclen=21, emalen=13, smooth=21)
         dataframe['ssl-dir'] = np.where(sslup > ssldown,'up','down')        
         dataframe['rmi-up'] = np.where(dataframe['rmi'] >= dataframe['rmi'].shift(),1,0)      
         dataframe['rmi-up-trend'] = np.where(dataframe['rmi-up'].rolling(5).sum() >= 3,1,0) 
@@ -348,12 +335,11 @@ class CryptoFrog(IStrategy):
         
         if self.ha_buy_check == True:
             conditions.append(
-                ## close ALWAYS needs to be lower than the heiken low at 5m
-                dataframe['close'] < dataframe['Smooth_HA_L']
-            )
-            conditions.append(
-                ## Hansen's HA EMA at informative timeframe
-                dataframe['emac_1h'] < dataframe['emao_1h']
+                (
+                    ## close ALWAYS needs to be lower than the heiken low at 5m
+                    (dataframe['close'] < dataframe['Smooth_HA_L']) &
+                    (dataframe['emac_1h'] < dataframe['emao_1h'])
+                )
             )
 
         if self.buy_triggers.value == 'bbexp' or self.buy_triggers.value == 'any':
@@ -430,12 +416,13 @@ class CryptoFrog(IStrategy):
         
         if self.ha_sell_check == True:
             conditions.append(
-                ## close ALWAYS needs to be lower than the heiken low at 5m
-                dataframe['close'] > dataframe['Smooth_HA_H']
-            )
-            conditions.append(
-                ## Hansen's HA EMA at informative timeframe
-                dataframe['emac_1h'] > dataframe['emao_1h']
+                (
+                    ## close ALWAYS needs to be lower than the heiken low at 5m
+                    (dataframe['close'] > dataframe['Smooth_HA_H'])
+                    &
+                    ## Hansen's HA EMA at informative timeframe
+                    (dataframe['emac_1h'] > dataframe['emao_1h'])
+                )
             )
             
         conditions.append(
@@ -609,3 +596,47 @@ class CryptoFrog(IStrategy):
         @staticmethod
         def indicator_space() -> List[Dimension]:
             return []
+        
+def RMI(dataframe, *, length=20, mom=5):
+    """
+    Source: https://github.com/freqtrade/technical/blob/master/technical/indicators/indicators.py#L912
+    """
+    df = dataframe.copy()
+
+    df['maxup'] = (df['close'] - df['close'].shift(mom)).clip(lower=0)
+    df['maxdown'] = (df['close'].shift(mom) - df['close']).clip(lower=0)
+
+    df.fillna(0, inplace=True)
+
+    df["emaInc"] = ta.EMA(df, price='maxup', timeperiod=length)
+    df["emaDec"] = ta.EMA(df, price='maxdown', timeperiod=length)
+
+    df['RMI'] = np.where(df['emaDec'] == 0, 0, 100 - 100 / (1 + df["emaInc"] / df["emaDec"]))
+
+    return df["RMI"]
+
+def SSLChannels_ATR(dataframe, length=7):
+    """
+    SSL Channels with ATR: https://www.tradingview.com/script/SKHqWzql-SSL-ATR-channel/
+    Credit to @JimmyNixx for python
+    """
+    df = dataframe.copy()
+
+    df['ATR'] = ta.ATR(df, timeperiod=14)
+    df['smaHigh'] = df['high'].rolling(length).mean() + df['ATR']
+    df['smaLow'] = df['low'].rolling(length).mean() - df['ATR']
+    df['hlv'] = np.where(df['close'] > df['smaHigh'], 1, np.where(df['close'] < df['smaLow'], -1, np.NAN))
+    df['hlv'] = df['hlv'].ffill()
+    df['sslDown'] = np.where(df['hlv'] < 0, df['smaHigh'], df['smaLow'])
+    df['sslUp'] = np.where(df['hlv'] < 0, df['smaLow'], df['smaHigh'])
+
+    return df['sslDown'], df['sslUp']
+
+def SROC(dataframe, roclen=21, emalen=13, smooth=21):
+    df = dataframe.copy()
+
+    roc = ta.ROC(df, timeperiod=roclen)
+    ema = ta.EMA(df, timeperiod=emalen)
+    sroc = ta.ROC(ema, timeperiod=smooth)
+
+    return sroc
