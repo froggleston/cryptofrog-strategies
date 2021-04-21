@@ -17,6 +17,8 @@ from freqtrade.exchange import timeframe_to_minutes
 from freqtrade.persistence import Trade
 from skopt.space import Dimension
 
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent))
 ## Solipsis4 indicator maths
 import custom_indicators as cta
 
