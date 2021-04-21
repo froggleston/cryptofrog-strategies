@@ -9,9 +9,9 @@ Heavily borrowing ideas from:
 
 # Things to Know
 
-- Fairly conservative strategy focusing on longer holds to find large peaks
+- **Fairly conservative strategy** focusing on longer holds to find large peaks - *don't be surprised if you don't get buys for hours or days*
 - Designed to trade altcoins against stablecoins, and I've used USDT intentionally to gain relative stability within BTC/ETH dump cycles
-- Nothing major. Hyperopted with Sharpe.
+- Hyperopted with ~~Sharpe~~ ShortTradeDurHyperOptLoss - if not, it'll simply end up with thousands of tiny profit trades which will likely end in slippage.
 - Protections need to be enabled. Happy to share my config - hit me up on the freqtrade discord
 - Included a live_plotting.ipynb notebook that can be used to immediately and easily view backtest results
 
