@@ -23,40 +23,56 @@ from functools import reduce
 import custom_indicators as cta
 
 class CryptoFrog(IStrategy):
-
-    # ROI table - this strat REALLY benefits from roi and trailing hyperopt:
-    minimal_roi = {
-        "0": 0.213,
-        "39": 0.103,
-        "96": 0.037,
-        "166": 0
-    }
-
+    
     # Buy hyperspace params:
     buy_params = {
         'bbw_exp_buy': True,
         'buy_triggers': 'bbexp',
-        'dmi_minus': 41,
-        'fast_d_buy': 10,
-        'mfi_buy': 26,
-        'srsi_d_buy': 14
+        'dmi_minus': 34,
+        'fast_d_buy': 42,
+        'mfi_buy': 9,
+        'srsi_d_buy': 5,
+        'vfi_buy': 0
     }
+
+    # Sell hyperspace params:
+    sell_params = {
+        'bbw_exp_sell': True,
+        'cstp_bail_how': 'any',
+        'cstp_bail_roc': -0.05,
+        'cstp_bail_time': 897,
+        'cstp_threshold': -0.005,
+        'dmi_plus': 35,
+        'droi_pullback': True,
+        'droi_pullback_amount': 0.006,
+        'droi_pullback_respect_table': True,
+        'droi_trend_type': 'rmi',
+        'mfi_sell': 85,
+        'vfi_sell': 0
+    }
+
+    # ROI table:
+    minimal_roi = {
+        "0": 0.243,
+        "39": 0.059,
+        "54": 0.017,
+        "170": 0
+    }  
     
     mfi_buy = IntParameter(0, 49, default=30, space='buy', optimize=True)
     mfi_sell = IntParameter(51, 100, default=80, space='sell', optimize=True)
+    vfi_buy = IntParameter(-1, 1, default=0, space='buy', optimize=False)
+    vfi_sell = IntParameter(-1, 1, default=0, space='sell', optimize=False)
     dmi_minus = IntParameter(15, 45, default=30, space='buy', optimize=True)
     dmi_plus = IntParameter(15, 45, default=30, space='sell', optimize=True)
     srsi_d_buy = IntParameter(0, 50, default=30, space='buy', optimize=True)
     fast_d_buy = IntParameter(0, 50, default=23, space='buy', optimize=True)
-    bbw_exp_buy = CategoricalParameter([True, False], default=True, space='buy', optimize=True)
-    bbw_exp_sell = CategoricalParameter([True, False], default=True, space='sell', optimize=True)
+    bbw_exp_buy = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
+    bbw_exp_sell = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
     
-    ha_check = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
-    #bbexp_check = CategoricalParameter([True, False], default=False, space='buy', optimize=True)
-    #extras_check = CategoricalParameter([True, False], default=False, space='buy', optimize=True)
-    #dip_check = CategoricalParameter([True, False], default=False, space='buy', optimize=True)
-    buy_triggers = CategoricalParameter(['bbexp', 'extras', 'diptection'], optimize=True)
-    #sell_triggers = CategoricalParameter(['Smooth_HA_H', 'emac_1h', 'emao_1h'])
+    ha_buy_check = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
+    ha_sell_check = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
+    buy_triggers = CategoricalParameter(['bbexp', 'extras', 'diptection', 'any'], optimize=True)
     
     # Stoploss:
     stoploss = -0.085
@@ -70,7 +86,7 @@ class CryptoFrog(IStrategy):
     use_custom_stoploss = True
     custom_stop = {
         # Linear Decay Parameters
-        'decay-time': 166,       # minutes to reach end, I find it works well to match this to the final ROI value - default 1080
+        'decay-time': 170,       # minutes to reach end, I find it works well to match this to the final ROI value - default 1080
         'decay-delay': 0,         # minutes to wait before decay starts
         'decay-start': -0.085, # -0.32118, # -0.07163,     # starting value: should be the same or smaller than initial stoploss - default -0.30
         'decay-end': -0.02,       # ending value - default -0.03
@@ -326,7 +342,7 @@ class CryptoFrog(IStrategy):
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         conditions = []
         
-        if self.ha_check == True:
+        if self.ha_buy_check == True:
             conditions.append(
                 ## close ALWAYS needs to be lower than the heiken low at 5m
                 dataframe['close'] < dataframe['Smooth_HA_L']
@@ -336,20 +352,24 @@ class CryptoFrog(IStrategy):
                 dataframe['emac_1h'] < dataframe['emao_1h']
             )
 
-        if self.buy_triggers.value == 'bbexp':
+        if self.buy_triggers.value == 'bbexp' or self.buy_triggers.value == 'any':
             conditions.append(
                 ((dataframe['bbw_expansion'] == self.bbw_exp_buy.value) & (dataframe['sqzmi'] == False))
                 &
                 (
-                    (dataframe['mfi'] < self.mfi_buy.value)
-                    |
-                    (dataframe['dmi_minus'] > self.dmi_minus.value)
+                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                    &
+                    (
+                        (dataframe['mfi'] < self.mfi_buy.value)
+                        |
+                        (dataframe['dmi_minus'] > self.dmi_minus.value)
+                    )
                 )
             )
         
-        if self.buy_triggers.value == 'extras':
+        if self.buy_triggers.value == 'extras' or self.buy_triggers.value == 'any':
             conditions.append(
-                ((dataframe['vfi'] < 0.0) & (dataframe['volume'] > 0))
+                ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
                 &
                 (
                     (
@@ -365,9 +385,9 @@ class CryptoFrog(IStrategy):
                 )
             )
             
-        if self.buy_triggers.value == 'diptection':
+        if self.buy_triggers.value == 'diptection' or self.buy_triggers.value == 'any':
             conditions.append(
-                ((dataframe['vfi'] < 0.0) & (dataframe['volume'] > 0))
+                ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
                 &
                 (
                     # find smaller temporary dips in sideways
@@ -402,35 +422,42 @@ class CryptoFrog(IStrategy):
     
     ## more going on here
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        conditions = []
+        
+        if self.ha_sell_check == True:
+            conditions.append(
+                ## close ALWAYS needs to be lower than the heiken low at 5m
+                dataframe['close'] > dataframe['Smooth_HA_H']
+            )
+            conditions.append(
+                ## Hansen's HA EMA at informative timeframe
+                dataframe['emac_1h'] > dataframe['emao_1h']
+            )
+            
+        conditions.append(
+            (dataframe['bbw_expansion'] == self.bbw_exp_buy.value)
+            &
+            (
+                (dataframe['mfi'] > self.mfi_sell.value)
+                |
+                (dataframe['dmi_plus'] > self.dmi_plus.value)
+            )
+        )
+        
+        conditions.append(
+            dataframe['vfi'] > self.vfi_sell.value
+        )
+        
+        conditions.append(
+            dataframe['volume'] > 0
+        )
+            
         dataframe.loc[
             (
-                (
-                    ## close ALWAYS needs to be higher than the heiken high at 5m
-                    (dataframe['close'] > dataframe['Smooth_HA_H'])
-                    &
-                    ## Hansen's HA EMA at informative timeframe
-                    (dataframe['emac_1h'] > dataframe['emao_1h'])
-                )
-                &
-                (
-                    ## try to find oversold regions with a corresponding BB expansion
-                    (
-                        (dataframe['bbw_expansion'] == self.bbw_exp_buy.value)
-                        &
-                        (
-                            (dataframe['mfi'] > self.mfi_sell.value)
-                            |
-                            (dataframe['dmi_plus'] > self.dmi_plus.value)
-                        )
-                    )
-                    ## volume sanity checks
-                    &
-                    (dataframe['vfi'] > 0.0)
-                    &
-                    (dataframe['volume'] > 0)                    
-                )
+                reduce(lambda x, y: x & y, conditions)
             ),
             'sell'] = 1
+        
         return dataframe
 
     """
