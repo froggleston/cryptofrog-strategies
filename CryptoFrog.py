@@ -17,12 +17,6 @@ from freqtrade.exchange import timeframe_to_minutes
 from freqtrade.persistence import Trade
 from skopt.space import Dimension
 
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent))
-## Solipsis4 indicator maths
-import custom_indicators as cta
-
 class CryptoFrog(IStrategy):
 
     # ROI table - this strat REALLY benefits from roi and trailing hyperopt:
@@ -252,9 +246,9 @@ class CryptoFrog(IStrategy):
         ## simple ATR and ROC for stoploss
         dataframe['atr'] = ta.ATR(dataframe, timeperiod=14)
         dataframe['roc'] = ta.ROC(dataframe, timeperiod=9)        
-        dataframe['rmi'] = cta.RMI(dataframe, length=24, mom=5)
-        ssldown, sslup = cta.SSLChannels_ATR(dataframe, length=21)
-        dataframe['sroc'] = cta.SROC(dataframe, roclen=21, emalen=13, smooth=21)
+        dataframe['rmi'] = RMI(dataframe, length=24, mom=5)
+        ssldown, sslup = SSLChannels_ATR(dataframe, length=21)
+        dataframe['sroc'] = SROC(dataframe, roclen=21, emalen=13, smooth=21)
         dataframe['ssl-dir'] = np.where(sslup > ssldown,'up','down')        
         dataframe['rmi-up'] = np.where(dataframe['rmi'] >= dataframe['rmi'].shift(),1,0)      
         dataframe['rmi-up-trend'] = np.where(dataframe['rmi-up'].rolling(5).sum() >= 3,1,0) 
@@ -538,3 +532,49 @@ class CryptoFrog(IStrategy):
         @staticmethod
         def indicator_space() -> List[Dimension]:
             return []
+
+## goddamnit
+
+def RMI(dataframe, *, length=20, mom=5):
+    """
+    Source: https://github.com/freqtrade/technical/blob/master/technical/indicators/indicators.py#L912
+    """
+    df = dataframe.copy()
+
+    df['maxup'] = (df['close'] - df['close'].shift(mom)).clip(lower=0)
+    df['maxdown'] = (df['close'].shift(mom) - df['close']).clip(lower=0)
+
+    df.fillna(0, inplace=True)
+
+    df["emaInc"] = ta.EMA(df, price='maxup', timeperiod=length)
+    df["emaDec"] = ta.EMA(df, price='maxdown', timeperiod=length)
+
+    df['RMI'] = np.where(df['emaDec'] == 0, 0, 100 - 100 / (1 + df["emaInc"] / df["emaDec"]))
+
+    return df["RMI"]
+
+def SSLChannels_ATR(dataframe, length=7):
+    """
+    SSL Channels with ATR: https://www.tradingview.com/script/SKHqWzql-SSL-ATR-channel/
+    Credit to @JimmyNixx for python
+    """
+    df = dataframe.copy()
+
+    df['ATR'] = ta.ATR(df, timeperiod=14)
+    df['smaHigh'] = df['high'].rolling(length).mean() + df['ATR']
+    df['smaLow'] = df['low'].rolling(length).mean() - df['ATR']
+    df['hlv'] = np.where(df['close'] > df['smaHigh'], 1, np.where(df['close'] < df['smaLow'], -1, np.NAN))
+    df['hlv'] = df['hlv'].ffill()
+    df['sslDown'] = np.where(df['hlv'] < 0, df['smaHigh'], df['smaLow'])
+    df['sslUp'] = np.where(df['hlv'] < 0, df['smaLow'], df['smaHigh'])
+
+    return df['sslDown'], df['sslUp']
+
+def SROC(dataframe, roclen=21, emalen=13, smooth=21):
+    df = dataframe.copy()
+
+    roc = ta.ROC(df, timeperiod=roclen)
+    ema = ta.EMA(df, timeperiod=emalen)
+    sroc = ta.ROC(ema, timeperiod=smooth)
+
+    return sroc
