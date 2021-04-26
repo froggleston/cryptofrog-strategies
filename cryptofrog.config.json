@@ -1,5 +1,5 @@
 {
-    "max_open_trades": 10,
+    "max_open_trades": -1,
     "stake_currency": "USDT",
     "stake_amount": 150,
     "tradable_balance_ratio": 0.99,
@@ -25,9 +25,6 @@
         "use_order_book": true,
         "order_book_min": 1,
         "order_book_max": 1,
-        "use_sell_signal": true,
-        "sell_profit_only": false,
-        "ignore_roi_if_buy_signal": false
     },
     "exchange": {
         "name": "",
@@ -60,12 +57,12 @@
 //    {"method": "PrecisionFilter"},
     {"method": "PriceFilter", "low_price_ratio": 0.01},
     {"method": "SpreadFilter", "max_spread_ratio": 0.003},
-//    {
-//        "method": "RangeStabilityFilter",
-//        "lookback_days": 3,
-//        "min_rate_of_change": 0.1,
-//        "refresh_period": 360
-//    },
+    {
+        "method": "RangeStabilityFilter",
+        "lookback_days": 3,
+        "min_rate_of_change": 0.1,
+        "refresh_period": 360
+    },
     ],
 
     "protections": [
@@ -75,25 +72,25 @@
     },
     {
         "method": "StoplossGuard",
-        "lookback_period_candles": 48,
+        "lookback_period_candles": 6,
         "trade_limit": 2,
-        "stop_duration_candles": 24,
+        "stop_duration_candles": 1440,
         "only_per_pair": true
     },
-    {
-        "method": "LowProfitPairs",
-        "lookback_period_candles": 3,
-        "trade_limit": 2,
-        "stop_duration_candles": 4,
-        "required_profit": 0.015
-    },
-    {
-        "method": "LowProfitPairs",
-        "lookback_period_candles": 24,
-        "trade_limit": 3,
-        "stop_duration_candles": 12,
-        "required_profit": 0.01
-    }
+//    {
+//        "method": "LowProfitPairs",
+//        "lookback_period_candles": 3,
+//        "trade_limit": 2,
+//        "stop_duration_candles": 4,
+//        "required_profit": 0.015
+//    },
+//    {
+//        "method": "LowProfitPairs",
+//        "lookback_period_candles": 24,
+//        "trade_limit": 3,
+//        "stop_duration_candles": 12,
+//        "required_profit": 0.01
+//    }
     ],
     "edge": {
         "enabled": false,
@@ -131,7 +128,7 @@
         "process_throttle_secs": 5
     },
     "db_url": "sqlite:///cryptofrog.sqlite",
-    "user_data_dir" : "./user_data",
+    "user_data_dir" : "user_data",
     "strategy": "CryptoFrog",
-    "strategy_path": "./user_data/strategies"
+    "strategy_path": "user_data/strategies"
 }
