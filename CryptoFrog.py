@@ -36,7 +36,7 @@ class CryptoFrog(IStrategy):
     srsi_d_sell = IntParameter(50, 100, default=80, space='sell', optimize=True)
     fast_d_buy = IntParameter(0, 50, default=23, space='buy', optimize=True)
     fast_d_sell = IntParameter(50, 100, default=70, space='sell', optimize=True)
-    bbw_exp_buy = CategoricalParameter([True, False], default=True, space='buy', opt=False)
+    bbw_exp_buy = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
     bbw_exp_sell = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
     
     msq_normabs_buy = IntParameter(-3.0, 3.0, default=2.2, space='buy', optimize=True)
