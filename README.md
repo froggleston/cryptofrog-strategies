@@ -1,7 +1,12 @@
 # cryptofrog-strategies
 CryptoFrog - My First Strategy for freqtrade
 
-Heavily borrowing ideas from:
+# "Release" Notes
+
+- 2021-04-26: The informatives branch now includes a big refactor to include new KAMA and Madrid Squeeze code. Hyperopting now in the main strategy. I'll pull this into main whenever I feel it's ready.
+- 2021-04-20: You'll need the latest freqtrade develop branch otherwise you might see weird "supersell" results in your backtraces. Head to the freqtrade discord for more info.
+
+# Heavily borrowing ideas from:
 
 - https://github.com/werkkrew/freqtrade-strategies : Amazing work on Solipsis that influenced my general framework and custom_stoploss
 - https://github.com/brookmiles/freqtrade-stuff : Great Ichi based strat from Obelisk
@@ -35,8 +40,9 @@ Heavily borrowing ideas from:
 You'll need:
 - Python 3.7+
 - Jupyter Notebook for the live_plotting.ipynb
-- Solipsis_v4 custom_indicators.py
+- ~~Solipsis_v4 custom_indicators.py~~
 - finta
 - TA-Lib
+- Pandas-TA
 - Pandas
 - Numpy
