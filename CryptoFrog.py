@@ -36,13 +36,16 @@ class CryptoFrog(IStrategy):
     srsi_d_sell = IntParameter(50, 100, default=80, space='sell', optimize=True)
     fast_d_buy = IntParameter(0, 50, default=23, space='buy', optimize=True)
     fast_d_sell = IntParameter(50, 100, default=70, space='sell', optimize=True)
-    bbw_exp_buy = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
+    bbw_exp_buy = CategoricalParameter([True, False], default=True, space='buy', opt=False)
     bbw_exp_sell = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
+    
+    msq_normabs_buy = IntParameter(-3.0, 3.0, default=2.2, space='buy', optimize=True)
+    msq_normabs_sell = IntParameter(-3.0, 3.0, default=2.2, space='sell', optimize=True)
     
     ha_buy_check = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
     ha_sell_check = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
-    buy_triggers = CategoricalParameter(['bbexp', 'extras', 'diptection', 'msq'], optimize=False)
-    sell_triggers = CategoricalParameter(['bbexp', 'kama_only', 'msq'], optimize=False)
+    buy_triggers = CategoricalParameter(['bbexp', 'extras', 'diptection', 'msq'], space='buy', default='bbexp', optimize=False)
+    sell_triggers = CategoricalParameter(['bbexp', 'kama_only', 'msq'], space='sell', default='msq', optimize=False)
     
     # Buy hyperspace params:
     buy_params = {
@@ -52,7 +55,8 @@ class CryptoFrog(IStrategy):
         'srsi_d_buy': 28,
         'ha_buy_check': True,
         'buy_triggers': 'bbexp',
-        'adx': 25
+        'adx': 25,
+        'msq_normabs_buy': 2.2
     }
 
     # Sell hyperspace params:
@@ -69,64 +73,11 @@ class CryptoFrog(IStrategy):
         'fast_d_sell': 92,
         'mfi_sell': 86,
         'srsi_d_sell': 51,
-        'sell_triggers': 'bbexp',
+        'sell_triggers': 'msq',
         'ha_sell_check': True,
-        'adx': 25        
+        'adx': 25,
+        'msq_normabs_sell': 2.2
     }
-
-#    # ROI table:
-#    minimal_roi = {
-#        "0": 0.182,
-#        "11": 0.099,
-#        "70": 0.034,
-#        "188": 0
-#    }
-    
-#    # Buy hyperspace params:
-#    buy_params = {
-#        'buy_triggers': 'bbexp',
-#        'dmi_minus': 36,
-#        'mfi_buy': 24, #23,
-#        'srsi_d_buy': 30,
-#        'fast_d_buy': 23,
-#        'ha_buy_check': True,
-#        'adx': 25
-#    }
-
-#    # Sell hyperspace params:
-#    sell_params = {
-#        'cstp_bail_how': 'time',
-#        'cstp_bail_roc': -0.02,
-#        'cstp_bail_time': 870,
-#        'cstp_threshold': -0.037,
-#        'dmi_plus': 36,
-#        'droi_pullback': False,
-#        'droi_pullback_amount': 0.018,
-#        'droi_pullback_respect_table': True,
-#        'droi_trend_type': 'any',
-#        'mfi_sell': 80,
-#        'srsi_d_sell': 80,
-#        'fast_d_sell': 70,
-#        'sell_triggers': 'bbexp',
-#        'ha_sell_check': True,
-#        'adx': 25
-#    }
-
-#    # ROI table:
-#    minimal_roi = {
-#        "0": 0.09,
-#        "20": 0.034,
-#        "35": 0.016,
-#        "133": 0
-#    }
-
-#    # ROI table:
-#    minimal_roi = {
-#        "0": 0.17,
-#        "16": 0.089,
-#        "55": 0.028,
-#        "65": 0
-#    }
 
     minimal_roi = {"0": 10}
     
@@ -352,20 +303,16 @@ class CryptoFrog(IStrategy):
         
         # money flow index (MFI) for in/outflow of money, like RSI adjusted for vol
         dataframe['mfi'] = pta.mfi(dataframe['high'], dataframe['low'], dataframe['close'], dataframe['volume'], length=general_period)
-        
+
         ## squeezies to detect quiet periods
-        msq_ma, msq_closema, msq_refma, msq_sqzma, msq_abs, msq_rollstd, msq_rollvar, msq_normvar, msq_normabs, msq_uptrend, msq_downtrend, msq_posidiv, msq_negadiv, msq_uptrend_buy = MadSqueeze(dataframe, period=general_period)
-        dataframe['msq_ma'] = msq_ma
+        msq_closema, msq_refma, msq_sqzma, msq_abs, msq_normabs, msq_rollstd, msq_rollvar, msq_uptrend, msq_downtrend, msq_posidiv, msq_negadiv, msq_uptrend_buy = self.MadSqueeze(dataframe, period=general_period)
         dataframe['msq_closema'] = msq_closema
         dataframe['msq_refma'] = msq_refma
         dataframe['msq_sqzma'] = msq_sqzma
         dataframe['msq_abs'] = msq_abs
-        dataframe['msq_abs_std'] = msq_abs.std()
-        dataframe['msq_abs_var'] = msq_abs.var()
+        dataframe['msq_normabs'] = msq_normabs
         dataframe['msq_rollstd'] = msq_rollstd
         dataframe['msq_rollvar'] = msq_rollvar
-        dataframe['msq_normvar'] = msq_normvar
-        dataframe['msq_normabs'] = msq_normabs
         dataframe['msq_uptrend'] = msq_uptrend
         dataframe['msq_downtrend'] = msq_downtrend
         dataframe['msq_posidiv'] = msq_posidiv
@@ -389,8 +336,8 @@ class CryptoFrog(IStrategy):
         dataframe['atr'] = ta.ATR(dataframe, timeperiod=general_period)
         dataframe['roc'] = ta.ROC(dataframe, timeperiod=9)        
         dataframe['rmi'] = RMI(dataframe, length=24, mom=5)
-        ssldown, sslup = SSLChannels_ATR(dataframe, length=21)
         dataframe['sroc'] = SROC(dataframe, roclen=21, emalen=13, smooth=21)
+        ssldown, sslup = SSLChannels_ATR(dataframe, length=21)
         dataframe['ssl-dir'] = np.where(sslup > ssldown,'up','down')        
         dataframe['rmi-up'] = np.where(dataframe['rmi'] >= dataframe['rmi'].shift(),1,0)      
         dataframe['rmi-up-trend'] = np.where(dataframe['rmi-up'].rolling(5).sum() >= 3,1,0) 
@@ -465,7 +412,11 @@ class CryptoFrog(IStrategy):
                     &
                     (dataframe['adx'] >= self.adx.value)
                     &
-                    ((dataframe['msq_downtrend_1h'] != 0) & (dataframe['ssl-dir_1h'] != 'down'))
+                    (dataframe['msq_normabs'] >= self.msq_normabs_buy.value)
+                    &
+                    (
+                        ((dataframe['msq_downtrend_1h'] != 0) & (dataframe['ssl-dir_1h'] != 'down'))
+                    )
                 )
             )            
         
@@ -497,7 +448,7 @@ class CryptoFrog(IStrategy):
             )
         
         if self.buy_triggers.value == 'msq':
-            self.ha_buy_check.value = False # turn off HA band check - sometimes buys will be within the HA curves
+            # self.ha_buy_check.value = False # turn off HA band check - sometimes buys will be within the HA curves
             
             conditions.append(
                 (
@@ -599,7 +550,11 @@ class CryptoFrog(IStrategy):
                     &
                     (dataframe['adx'] >= self.adx.value)
                     &
-                    ((dataframe['msq_uptrend_1h'] == 1) & (dataframe['ssl-dir_1h'] == 'up'))
+                    (
+                        ((dataframe['msq_uptrend_1h'] == 1) & (dataframe['ssl-dir_1h'] == 'up'))
+                        &
+                        (dataframe['msq_normabs'] >= self.msq_normabs_sell.value)
+                    )
                 )
             )
         
@@ -792,6 +747,96 @@ class CryptoFrog(IStrategy):
 
         return trade_data
     
+    ## based on https://www.tradingview.com/script/9bUUSzM3-Madrid-Trend-Squeeze/
+    def MadSqueeze(self, dataframe, period=34, ref=13, sqzlen=5):
+        df = dataframe.copy()
+
+        # min period force
+        if period < 14:
+            period = 14
+
+        ma = ta.EMA(df['close'], period)
+
+        closema = df['close'] - ma
+        df['msq_closema'] = closema
+
+        refma = ta.EMA(df['close'], ref) - ma
+        df['msq_refma'] = refma
+
+        sqzma = ta.EMA(df['close'], sqzlen) - ma
+        df['msq_sqzma'] = sqzma
+        
+        ## Apply a non-parametric transformation to map the Madrid Trend Squeeze data to a Gaussian.
+        ## We do this to even out the peaks across the dataframe, and end up with a normally distributed measure of the variance
+        ## between ma, the reference EMA and the squeezed EMA
+        ## The bigger the number, the bigger the peak detected. Buys and sells tend to happen at the peaks.
+        quantt = preprocessing.QuantileTransformer(output_distribution='normal', random_state=0, n_quantiles=df.shape[0]-1)
+        df['msq_abs'] = (df['msq_closema'].fillna(0).abs() + df['msq_refma'].fillna(0).abs() + df['msq_sqzma'].fillna(0).abs())
+        df['msq_normabs'] = quantt.fit_transform(df[['msq_abs']])
+
+        df['msq_rollstd'] = df['msq_abs'].rolling(sqzlen).std()
+        df['msq_rollvar'] = df['msq_abs'].rolling(sqzlen).var()
+
+        df['msq_uptrend'] = 0
+        df['msq_downtrend'] = 0
+        df['msq_posidiv'] = 0
+        df['msq_negadiv'] = 0
+        df['msq_uptrend_buy'] = 0
+
+        df.loc[
+            (
+                (df['msq_refma'] > 0)
+                &
+                (df['msq_closema'] >= df['msq_refma'])
+            ),
+            'msq_uptrend'] = 1
+
+        df.loc[
+            (
+                (df['msq_refma'] < 0)
+                &
+                (df['msq_closema'] <= df['msq_refma'])
+            ),
+            'msq_downtrend'] = 1
+
+        df.loc[
+            (
+                (df['msq_refma'] > 0)
+                &
+                (qtpylib.crossed_above(df['msq_refma'], 0))
+            ),
+            'msq_posidiv'] = 1
+
+        df.loc[
+            (
+                (df['msq_refma'] < 0)
+                &
+                (qtpylib.crossed_below(df['msq_refma'], 0))
+            ),
+            'msq_negadiv'] = 1
+
+        df.loc[
+            (
+                (
+                    ## most likely OK uptrend buy
+                    (df['msq_refma'] >= 0)
+                    &
+                    (df['msq_closema'] < df['msq_refma'])
+                )
+                |
+                (
+                    ## most likely reversal
+                    (df['msq_refma'] < 0)
+                    &
+                    (df['msq_closema'] > df['msq_refma'])
+                )
+                &
+                (df['msq_normabs'] > 2.2)
+            ),
+            'msq_uptrend_buy'] = 1
+
+        return df['msq_closema'], df['msq_refma'], df['msq_sqzma'], df['msq_abs'], df['msq_normabs'], df['msq_rollstd'], df['msq_rollvar'], df['msq_uptrend'], df['msq_downtrend'], df['msq_posidiv'], df['msq_negadiv'], df['msq_uptrend_buy']    
+    
     def TTMSqueeze(self, dataframe, window=20):
         df = dataframe.copy()
 
@@ -865,92 +910,3 @@ def SROC(dataframe, roclen=21, emalen=13, smooth=21):
     sroc = ta.ROC(ema, timeperiod=smooth)
 
     return sroc
-
-## based on https://www.tradingview.com/script/9bUUSzM3-Madrid-Trend-Squeeze/
-## still needs the rolling sample variance indicator built in otherwise I won't find local peaks
-def MadSqueeze(dataframe, period=34, ref=13, sqzlen=5):
-    df = dataframe.copy()
-    
-    # min period force
-    if period < 14:
-        period = 14
-        
-    ma = ta.EMA(df['close'], period)
-    df['msq_ma'] = ma
-    
-    closema = df['close'] - ma
-    df['msq_closema'] = closema
-    
-    refma = ta.EMA(df['close'], ref) - ma
-    df['msq_refma'] = refma
-    
-    sqzma = ta.EMA(df['close'], sqzlen) - ma
-    df['msq_sqzma'] = sqzma
-    
-    scaler = preprocessing.MinMaxScaler()
-    df['msq_abs'] = (abs(closema) + abs(refma) + abs(sqzma))
-    df['msq_normabs'] = scaler.fit_transform(df[['msq_abs']])
-    
-    df['msq_rollstd'] = df['msq_abs'].rolling(sqzlen).std()
-    df['msq_rollvar'] = df['msq_abs'].rolling(sqzlen).var()
-    df['msq_normvar'] = scaler.fit_transform(df[['msq_rollvar']])
-    
-    ## (refma>=0 and closema<refma) or (refma<0 and closema>refma) ? yellow : refma>=0 ? green:maroon
-
-    df['msq_uptrend'] = 0
-    df['msq_downtrend'] = 0
-    df['msq_posidiv'] = 0
-    df['msq_negadiv'] = 0
-    df['msq_uptrend_buy'] = 0
-
-    df.loc[
-        (
-            (df['msq_refma'] > 0)
-            &
-            (df['msq_closema'] >= df['msq_refma'])
-        ),
-        'msq_uptrend'] = 1
-    
-    df.loc[
-        (
-            (df['msq_refma'] < 0)
-            &
-            (df['msq_closema'] <= df['msq_refma'])
-        ),
-        'msq_downtrend'] = 1
-    
-    df.loc[
-        (
-            (df['msq_refma'] > 0)
-            &
-            (qtpylib.crossed_above(df['msq_refma'], 0))
-        ),
-        'msq_posidiv'] = 1
-    
-    df.loc[
-        (
-            (df['msq_refma'] < 0)
-            &
-            (qtpylib.crossed_below(df['msq_refma'], 0))
-        ),
-        'msq_negadiv'] = 1
-    
-    df.loc[
-        (
-            (
-                ## most likely OK uptrend buy
-                (df['msq_refma'] >= 0)
-                &
-                (df['msq_closema'] < df['msq_refma'])
-            )
-            |
-            (
-                ## most likely reversal                
-                (df['msq_refma'] < 0)
-                &
-                (df['msq_closema'] > df['msq_refma'])
-            )            
-        ),
-        'msq_uptrend_buy'] = 1
-    
-    return df['msq_ma'], df['msq_closema'], df['msq_refma'], df['msq_sqzma'], df['msq_abs'], df['msq_rollstd'], df['msq_rollvar'], df['msq_normvar'], df['msq_normabs'], df['msq_uptrend'], df['msq_downtrend'], df['msq_posidiv'], df['msq_negadiv'], df['msq_uptrend_buy']
