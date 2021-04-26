@@ -3,7 +3,7 @@ CryptoFrog - My First Strategy for freqtrade
 
 # "Release" Notes
 
-- 2021-04-26: Big refactor to include new KAMA and Madrid Squeeze code. Hyperopting now in the main strategy.
+- 2021-04-26: The informatives branch now includes a big refactor to include new KAMA and Madrid Squeeze code. Hyperopting now in the main strategy. I'll pull this into main whenever I feel it's ready.
 - 2021-04-20: You'll need the latest freqtrade develop branch otherwise you might see weird "supersell" results in your backtraces. Head to the freqtrade discord for more info.
 
 Heavily borrowing ideas from:
