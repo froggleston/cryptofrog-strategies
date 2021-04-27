@@ -44,23 +44,25 @@ class CryptoFrog(IStrategy):
     
     ha_buy_check = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
     ha_sell_check = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
-    buy_triggers = CategoricalParameter(['bbexp', 'extras', 'diptection', 'msq'], space='buy', default='bbexp', optimize=False)
-    sell_triggers = CategoricalParameter(['bbexp', 'kama_only', 'msq'], space='sell', default='msq', optimize=False)
+    buy_triggers = CategoricalParameter(['bbexp', 'strictest', 'stricter', 'strict', 'loose', 'looser', 'loosest', 'looseygoosey'], space='buy', default='loose', optimize=False)
+    sell_triggers = CategoricalParameter(['bbexp', 'stricter', 'strict', 'loose'], space='sell', default='strict', optimize=False)
     
     # Buy hyperspace params:
     buy_params = {
+        'buy_triggers': 'loose',
+        'ha_buy_check': True,     
         'dmi_minus': 17,
         'fast_d_buy': 35,
         'mfi_buy': 9,
         'srsi_d_buy': 28,
-        'ha_buy_check': True,
-        'buy_triggers': 'bbexp',
         'adx': 25,
         'msq_normabs_buy': 2.2
     }
 
     # Sell hyperspace params:
     sell_params = {
+        'sell_triggers': 'strict',
+        'ha_sell_check': True,
         'cstp_bail_how': 'any',
         'cstp_bail_roc': -0.012,
         'cstp_bail_time': 1414,
@@ -73,14 +75,10 @@ class CryptoFrog(IStrategy):
         'fast_d_sell': 92,
         'mfi_sell': 86,
         'srsi_d_sell': 51,
-        'sell_triggers': 'msq',
-        'ha_sell_check': True,
         'adx': 25,
         'msq_normabs_sell': 2.2
     }
 
-    minimal_roi = {"0": 10}
-    
     use_custom_stoploss = False
     custom_stop = {
         # Linear Decay Parameters
@@ -97,16 +95,33 @@ class CryptoFrog(IStrategy):
         # Positive Trailing
         'pos-trail': True,        # enable trailing once positive  
         'pos-threshold': 0.005,   # trail after how far positive
-        'pos-trail-dist': 0.015   # how far behind to place the trail
+        'pos-trail-dist': 0.015,   # how far behind to place the trail
     }
 
-    stoploss = custom_stop['decay-start']
+    custom_info = {
+        'initial_stoploss_modifier': 1,
+        'risk_reward_ratio': 1.5,
+        'trailing_stoploss_modifier': 2
+    }
     
+    # effectively disable ROI and stoploss
+    stoploss = custom_stop['decay-start']
+    minimal_roi = {"0": 10}
+
+    # run "populate_indicators" only for new candle
+    process_only_new_candles = False
+
+    use_sell_signal = True
+    sell_profit_only = False
+    ignore_roi_if_buy_signal = True
+
     # Trailing stop:
     trailing_stop = False
-    trailing_stop_positive = 0.01 # 0.21
-    trailing_stop_positive_offset = 0.022 # 0.31
+    trailing_stop_positive = 0.01 
+    trailing_stop_positive_offset = 0.022 
     trailing_only_offset_is_reached = True
+        
+    use_dynamic_roi = False
     
     # Dynamic ROI
     droi_trend_type = CategoricalParameter(['rmi', 'ssl', 'candle', 'any'], default='any', space='sell', optimize=True)
@@ -122,24 +137,16 @@ class CryptoFrog(IStrategy):
     
     custom_trade_info = {}
     custom_current_price_cache: TTLCache = TTLCache(maxsize=100, ttl=300) # 5 minutes
-        
-    # run "populate_indicators" only for new candle
-    process_only_new_candles = False
-
-    # Experimental settings (configuration will overide these if set)
-    use_sell_signal = True
-    sell_profit_only = False
-    ignore_roi_if_buy_signal = True
-
-    use_dynamic_roi = False
     
-    timeframe = '5m'
+    timeframe = '15m'
     informative_timeframe = '1h'
     
     # Optional order type mapping
     order_types = {
-        'buy': 'limit',
-        'sell': 'limit',
+        #'buy': 'limit', # short term trades
+        #'sell': 'limit', # short term trades
+        'buy': 'market', # long term trades
+        'sell': 'market', # long term trades
         'stoploss': 'market',
         'stoploss_on_exchange': False
     }
@@ -148,55 +155,54 @@ class CryptoFrog(IStrategy):
         'main_plot': {
             'Smooth_HA_H': {'color': 'orange'},
             'Smooth_HA_L': {'color': 'yellow'},
+            'emac_1h': {'color': 'pink'},
+            'emao_1h': {'color': 'purple'},  
+            'kama_s': {'color': 'red'},
+            'kama_f': {'color': 'blue'},
+            'kama_ssma': {'color': 'fuchsia'},
         },
         'subplots': {
-            "StochRSI": {
-                'srsi_k': {'color': 'blue'},
-                'srsi_d': {'color': 'red'},
-            },
             "MFI": {
                 'mfi': {'color': 'green'},
             },
             "BBEXP": {
                 'bbw_expansion': {'color': 'orange'},
             },
+            "RSI": {
+                'srsi_k': {'color': 'pink'},
+                'srsi_d': {'color': 'purple'},
+            },
             "FAST": {
                 'fastd': {'color': 'red'},
                 'fastk': {'color': 'blue'},
+            },        
+            "SSLDIR": {
+                'ssl-dir_1h': {'color': 'black'},
             },
-            "SQZMI": {
-                'sqzmi': {'color': 'lightgreen'},
+            "MADUP1H": {
+                'msq_uptrend_1h': {'color': 'green'},
             },
-            "VFI": {
-                'vfi': {'color': 'lightblue'},
+            "MADDOWN1H": {
+                'msq_downtrend_1h': {'color': 'red'},
+            },        
+            "NORMABS": {
+                'msq_normabs': {'color': 'pink'},
             },
             "DMI": {
                 'dmi_plus': {'color': 'orange'},
                 'dmi_minus': {'color': 'yellow'},
             },
-            "EMACO": {
-                'emac_1h': {'color': 'red'},
-                'emao_1h': {'color': 'blue'},
-            },
-            "MAD": {
-                'msq_closema': {'color': 'yellow'},
-                'msq_refma': {'color': 'orange'},
-                'msq_sqzma': {'color': 'red'},
-            },
-            "MAD1H": {
-                'msq_uptrend_1h': {'color': 'green'},
-                'msq_downtrend_1h': {'color': 'red'},
-                'msq_posidiv_1h': {'color': 'lightred'},
-                'msq_negadiv_1h': {'color': 'lightgreen'},
-            },            
+            "ADX": {
+                'adx': {'color': 'fuchsia'},
+            }
         }
     }
 
     def informative_pairs(self):
-        # pairs = self.dp.current_whitelist()
-        pairs = []
-        pairs.append("BTC/USDT")
-        pairs.append("ETH/USDT")
+        pairs = self.dp.current_whitelist()
+        # pairs = []
+        #pairs.append("BTC/USDT")
+        #pairs.append("ETH/USDT")
         informative_pairs = [(pair, self.informative_timeframe) for pair in pairs]
         return informative_pairs
 
@@ -331,9 +337,15 @@ class CryptoFrog(IStrategy):
         dataframe['dmi_plus'] = adxdf[f'DMP_{general_period}'].round(0)
         dataframe['dmi_minus'] = adxdf[f'DMN_{general_period}'].round(0)
         
-        ## for stoploss - all from Solipsis4
+        ## for stoploss - all from Solipsis4, TakeProfit and ichi_ssl_trailing @JoeSchr
         ## simple ATR and ROC for stoploss
-        dataframe['atr'] = ta.ATR(dataframe, timeperiod=general_period)
+        #dataframe['atr'] = ta.ATR(dataframe, timeperiod=general_period)
+        dataframe['min'] = dataframe['low'].rolling(48).min()
+        dataframe['atr'] = ta.ATR(dataframe)
+
+        dataframe['initial_stoploss_rate'] = dataframe['min'] - (dataframe['atr']*self.custom_info['initial_stoploss_modifier']) #dataframe['close']*0.96
+        dataframe['trailing_stoploss_rate'] = dataframe['low'].shift() - (dataframe['atr']*self.custom_info['trailing_stoploss_modifier'])
+        
         dataframe['roc'] = ta.ROC(dataframe, timeperiod=9)        
         dataframe['rmi'] = RMI(dataframe, length=24, mom=5)
         dataframe['sroc'] = SROC(dataframe, roclen=21, emalen=13, smooth=21)
@@ -363,6 +375,8 @@ class CryptoFrog(IStrategy):
 
             ## do indicators for pair tf
             dataframe = self.do_indicators(dataframe, metadata)
+            #for stoploss
+            self.custom_info[metadata['pair']] = dataframe[['date', 'initial_stoploss_rate', 'trailing_stoploss_rate']].copy().set_index('date')
             
             ## now do timeframe informatives
             informative = self.dp.get_pair_dataframe(pair=metadata['pair'], timeframe=self.informative_timeframe)
@@ -399,24 +413,22 @@ class CryptoFrog(IStrategy):
                         (dataframe['close'] < dataframe['Smooth_HA_L'])
                         |
                         (
-                            (dataframe['kama_s'].round(0) >= dataframe['kama_ssma'].round(0))
+                            (dataframe['kama_s'].round(1) >= dataframe['kama_ssma'].round(1))
                             &
                             #(qtpylib.crossed_above(dataframe['close'], dataframe['kama_f']))
-                            (dataframe['kama_f'].round(0) <= dataframe['kama_s'].round(0))
+                            (dataframe['kama_f'].round(1) <= dataframe['kama_s'].round(1))
                         )
                     )
                     &
                     (dataframe['emac_1h'] < dataframe['emao_1h'])
                     &
                     (dataframe['close'] < dataframe['emac_1h'])
-                    &
-                    (dataframe['adx'] >= self.adx.value)
-                    &
-                    (dataframe['msq_normabs'] >= self.msq_normabs_buy.value)
-                    &
-                    (
-                        ((dataframe['msq_downtrend_1h'] != 0) & (dataframe['ssl-dir_1h'] != 'down'))
-                    )
+#                    &
+#                    (dataframe['ssl-dir_1h'] == 'up')
+#                    &
+#                    (
+#                        ((dataframe['msq_downtrend_1h'] != 0) & (dataframe['ssl-dir_1h'] != 'down'))
+#                    )
                 )
             )            
         
@@ -446,77 +458,164 @@ class CryptoFrog(IStrategy):
                     )
                 )
             )
-        
-        if self.buy_triggers.value == 'msq':
-            # self.ha_buy_check.value = False # turn off HA band check - sometimes buys will be within the HA curves
-            
+
+        if self.buy_triggers.value == 'strictest':
             conditions.append(
                 (
-                    ## no buys in 1hr downtrend!
-                    (dataframe['msq_downtrend_1h'] == 0)
+                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
                     &
-                    (dataframe['msq_uptrend_1h'] == 1)
+                    (dataframe['ssl-dir_1h'] == 'up')
                     &
-                    (dataframe['ttmsqueeze'] == True)
+                    (dataframe['mfi'] < self.mfi_buy.value)
+                    &
+                    (dataframe['dmi_minus'] > self.dmi_minus.value)
+                    &
+                    (dataframe['adx'] >= self.adx.value)
+                    &
+                    (dataframe['msq_normabs'] >= self.msq_normabs_buy.value)
+                    &
+                    (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
                 )
-                &
+            )            
+        
+        if self.buy_triggers.value == 'stricter':
+            conditions.append(
                 (
                     ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
                     &
                     (
-                        (dataframe['dmi_minus'] > dataframe['dmi_plus'])
+                        (dataframe['ssl-dir_1h'] == 'up')
+                        &
+                        (
+                            (dataframe['mfi'] < self.mfi_buy.value)
+                            &
+                            (dataframe['dmi_minus'] > self.dmi_minus.value)
+                            &
+                            (dataframe['adx'] >= self.adx.value * 0.8)
+                            &
+                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.9)
+                            &
+                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
+                        )
+                    )
+                )
+            )
+            
+        if self.buy_triggers.value == 'strict':
+            conditions.append(
+                (
+                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                    &
+                    (
+                        (dataframe['ssl-dir_1h'] == 'up')
+                        &
+                        (
+                            (dataframe['mfi'] < self.mfi_buy.value)
+                            &
+                            (dataframe['dmi_minus'] > self.dmi_minus.value)
+                            &
+                            (dataframe['adx'] >= self.adx.value * 0.8)
+                            &
+                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.9)
+                            |
+                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
+                        )
+                    )
+                )
+            )
+            
+        if self.buy_triggers.value == 'loose':
+            conditions.append(
+                (
+                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                    &
+                    (
+                        (dataframe['msq_normabs'] >= self.msq_normabs_buy.value)
+                        &
+                        (dataframe['mfi'] < self.mfi_buy.value)
+                        &
+                        (dataframe['dmi_minus'] > self.dmi_minus.value)
+                        &
+                        (dataframe['adx'] >= self.adx.value)
+                        |
+                        (
+                            (dataframe['ssl-dir_1h'] == 'up')
+                            |
+                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
+                        )
+                    )
+                )
+            )            
+
+        if self.buy_triggers.value == 'looser':
+            conditions.append(
+                (
+                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                    &
+                    (
+                        (dataframe['ssl-dir_1h'] == 'up')
                         |
                         (
                             (dataframe['mfi'] < self.mfi_buy.value)
-                            |
-                            (dataframe['dmi_minus'] > self.dmi_minus.value)
-                        )
-                    )
-                )
-            )
-        
-        if self.buy_triggers.value == 'extras':
-            conditions.append(
-                ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
-                &
-                (
-                    (
-                        # this tries to find extra buys in undersold regions
-                        (dataframe['close'] < dataframe['sar'])
-                        &
-                        ((dataframe['srsi_d'] >= dataframe['srsi_k']) & (dataframe['srsi_d'] < self.srsi_d_buy.value))
-                        &
-                        ((dataframe['fastd'] > dataframe['fastk']) & (dataframe['fastd'] < self.fast_d_buy.value)) # 23
-                        &
-                        (dataframe['mfi'] < self.mfi_buy.value)
-                    )
-                )
-            )
-            
-        if self.buy_triggers.value == 'diptection':
-            conditions.append(
-                ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
-                &
-                (
-                    # find smaller temporary dips in sideways
-                    (
-                        (
+                            &
                             (dataframe['dmi_minus'] > self.dmi_minus.value)
                             &
-                            (qtpylib.crossed_above(dataframe['dmi_minus'], dataframe['dmi_plus']))
+                            (dataframe['adx'] >= self.adx.value * 0.9)
+                            &
+                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.9)
+                            |
+                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
                         )
-                        &
-                        (dataframe['close'] < dataframe['bb_lowerband'])
-                    )
-                    |
-                    (
-                        # qtpylib.crossed_below(dataframe['msq_closema'], 0)
-                        #&
-                        ((dataframe['fastd'] > dataframe['fastk']) & (dataframe['fastd'] < self.fast_d_buy.value)) #20
                     )
                 )
-            )
+            )               
+
+        if self.buy_triggers.value == 'loosest':
+            conditions.append(
+                (
+                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                    &
+                    (
+                        (dataframe['ssl-dir_1h'] == 'up')
+                        |
+                        (
+                            (dataframe['mfi'] < self.mfi_buy.value)
+                            &
+                            (dataframe['dmi_minus'] > self.dmi_minus.value)
+                            &
+                            (dataframe['adx'] >= self.adx.value * 0.8)
+                            &
+                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.8)
+                            |
+                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
+                        )
+                    )
+                )
+            )            
             
+        if self.buy_triggers.value == 'looseygoosey':
+            conditions.append(
+                (
+                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                    &
+                    (
+                        (dataframe['ssl-dir_1h'] == 'up')
+                        |
+                        (
+                            (dataframe['mfi'] < self.mfi_buy.value)
+                            &
+                            (dataframe['dmi_minus'] > self.dmi_minus.value)
+                            &
+                            (dataframe['adx'] >= self.adx.value * 0.7)
+                            &
+                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.8)
+                            |
+                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
+                        )
+                    )
+                )
+            )                 
+        
         dataframe.loc[
             (
                 reduce(lambda x, y: x & y, conditions)
@@ -536,10 +635,10 @@ class CryptoFrog(IStrategy):
                         (dataframe['close'] > dataframe['Smooth_HA_H'])
                         |
                         (
-                            (dataframe['kama_s'].round(0) <= dataframe['kama_ssma'].round(0))
+                            (dataframe['kama_s'].round(1) <= dataframe['kama_ssma'].round(1))
                             &
                             #(qtpylib.crossed_below(dataframe['close'], dataframe['kama_f'])) ## crosses over?
-                            (dataframe['kama_f'].round(0) >= dataframe['kama_s'].round(0))
+                            (dataframe['kama_f'].round(1) >= dataframe['kama_s'].round(1))
                         )
                     )
                     &
@@ -547,14 +646,6 @@ class CryptoFrog(IStrategy):
                     (dataframe['emac_1h'] > dataframe['emao_1h'])
                     &
                     (dataframe['close'] > dataframe['emac_1h'])
-                    &
-                    (dataframe['adx'] >= self.adx.value)
-                    &
-                    (
-                        ((dataframe['msq_uptrend_1h'] == 1) & (dataframe['ssl-dir_1h'] == 'up'))
-                        &
-                        (dataframe['msq_normabs'] >= self.msq_normabs_sell.value)
-                    )
                 )
             )
         
@@ -575,17 +666,63 @@ class CryptoFrog(IStrategy):
                 )
             )
 
-        if self.sell_triggers.value == 'msq':
+        if self.sell_triggers.value == 'stricter':
             conditions.append(
-                (dataframe['mfi'] > self.mfi_sell.value)
-                |
                 (
-                    (dataframe['dmi_plus'] > self.dmi_plus.value)
+                    (dataframe['ssl-dir_1h'] == 'up')
                     &
-                    (dataframe['dmi_plus'] > dataframe['dmi_minus'])
+                    (
+                        (dataframe['mfi'] > self.mfi_sell.value)
+                        &
+                        (dataframe['dmi_plus'] > self.dmi_plus.value)
+                        &
+                        (dataframe['adx'] >= self.adx.value)
+                        &
+                        (dataframe['msq_normabs'] >= self.msq_normabs_sell.value)
+                        &
+                        (qtpylib.crossed_below(dataframe['fastk'], dataframe['fastd']))
+                    )
+                )
+            )            
+            
+        if self.sell_triggers.value == 'strict':
+            conditions.append(
+                (
+                    (dataframe['ssl-dir_1h'] == 'up')
+                    &
+                    (
+                        (dataframe['mfi'] > self.mfi_sell.value)
+                        &
+                        (dataframe['dmi_plus'] > self.dmi_plus.value)
+                        &
+                        (dataframe['adx'] >= self.adx.value)
+                        &
+                        (dataframe['msq_normabs'] >= self.msq_normabs_sell.value)
+                        |
+                        (qtpylib.crossed_below(dataframe['fastk'], dataframe['fastd']))
+                    )
                 )
             )
             
+        if self.sell_triggers.value == 'loose':
+            conditions.append(
+                (
+                    (dataframe['ssl-dir_1h'] == 'up')
+                    |
+                    (
+                        (dataframe['mfi'] > self.mfi_sell.value)
+                        &
+                        (dataframe['dmi_plus'] > self.dmi_plus.value)
+                        &
+                        (dataframe['adx'] >= self.adx.value)
+                        &
+                        (dataframe['msq_normabs'] >= self.msq_normabs_sell.value * 0.95)
+                        |
+                        (qtpylib.crossed_below(dataframe['fastk'], dataframe['fastd']))
+                    )
+                )
+            )
+
         conditions.append(
             (dataframe['vfi'] > self.vfi_sell.value)
             &
@@ -609,13 +746,86 @@ class CryptoFrog(IStrategy):
 #            else:
 #                return True
 #        return True
-    
+
+#    def custom_stoploss(self, pair: str, trade: 'Trade', current_time: datetime,
+#                        current_rate: float, current_profit: float, **kwargs) -> float:
+#        if (current_time - timedelta(minutes=2200) > trade.open_date_utc) & (current_profit < 0):
+#            return 0.001
+#        return 0.5
+
+    def custom_stoploss(self, pair: str, trade: 'Trade', current_time: datetime,
+                        current_rate: float, current_profit: float, **kwargs) -> float:
+
+        result = 1
+        custom_info_pair = self.custom_info[pair]
+        if custom_info_pair is not None:
+            # using current_time/open_date directly will only work in backtesting/hyperopt.
+            # in live / dry-run, we have to search for nearest row before
+            tz = custom_info_pair.index.tz
+            open_date = trade.open_date_utc if hasattr(
+                trade, 'open_date_utc') else trade.open_date.replace(tzinfo=custom_info_pair.index.tz)
+            open_date_mask = custom_info_pair.index.unique().get_loc(open_date, method='ffill')
+            open_df = custom_info_pair.iloc[open_date_mask]
+
+            # trade might be open too long for us to find opening candle
+            if(open_df is None or len(open_df) == 0):
+                return -1 # won't update current stoploss
+
+            initial_sl_abs = open_df['initial_stoploss_rate']
+            # calculate initial stoploss at open_date
+            # use initial_sl
+            initial_sl = initial_sl_abs/current_rate-1
+
+            # calculate take profit treshold
+            # by using the initial risk and multiplying it
+            risk_distance = trade.open_rate-initial_sl_abs
+            reward_distance = risk_distance*self.custom_info['risk_reward_ratio']
+            # take_profit tries to lock in profit once price gets over
+            # risk/reward ratio treshold
+            take_profit_price_abs = trade.open_rate+reward_distance
+            # take_profit gets triggerd at this profit
+            take_profit_pct = take_profit_price_abs/current_rate-1
+
+            # quick exit if still under takeprofit, use intial sl
+            if (current_profit < take_profit_pct):
+                return initial_sl
+
+            result = initial_sl
+
+            trailing_sl_abs = None
+            # calculate current trailing stoploss
+            if self.dp:
+                # backtesting/hyperopt
+                if self.dp.runmode.value in ('backtest', 'hyperopt'):
+                    trailing_sl_abs = custom_info_pair.loc[current_time]['trailing_stoploss_rate']
+                # for live, dry-run, storing the dataframe is not really necessary,
+                # it's available from get_analyzed_dataframe()
+                else:
+                    # so we need to get analyzed_dataframe from dp
+                    dataframe, last_updated = self.dp.get_analyzed_dataframe(pair=pair,
+                                                                             timeframe=self.timeframe)
+                    # only use .iat[-1] in live mode, otherwise you will look into the future
+                    # see: https://www.freqtrade.io/en/latest/strategy-customization/#common-mistakes-when-developing-strategies
+                    trailing_sl_abs = dataframe['trailing_stoploss_rate'].iat[-1]
+
+            if (trailing_sl_abs is not None and trailing_sl_abs < take_profit_price_abs):
+
+                # calculate new_stoploss relative to current_rate
+                # turn into relative negative offset required by `custom_stoploss` return implementation
+                new_sl_relative = trailing_sl_abs/current_rate-1
+                result = new_sl_relative
+
+        return result
+
     """
     Everything from here completely stolen from the godly work of @werkkrew
     
     Custom Stoploss 
     """ 
-    def custom_stoploss(self, pair: str, trade: 'Trade', current_time: datetime, current_rate: float, current_profit: float, **kwargs) -> float:
+    def custom_stoploss1(self, pair: str, trade: 'Trade', current_time: datetime, current_rate: float, current_profit: float, **kwargs) -> float:
+        # if the trade is over 5 and under 20 minutes and dropped under 5%, then I set stoploss -0.06.
+        # if more than 180 min, and is under 10% of its maximum or reached -0.14 at a point and recovered. Then if over 1200 minutes etc
+        
         trade_dur = int((current_time.timestamp() - trade.open_date_utc.timestamp()) // 60)
 
         if self.config['runmode'].value in ('live', 'dry_run'):
