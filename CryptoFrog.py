@@ -44,12 +44,12 @@ class CryptoFrog(IStrategy):
     
     ha_buy_check = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
     ha_sell_check = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
-    buy_triggers = CategoricalParameter(['bbexp', 'strictest', 'stricter', 'strict', 'loose', 'looser', 'loosest', 'looseygoosey'], space='buy', default='loose', optimize=False)
-    sell_triggers = CategoricalParameter(['bbexp', 'stricter', 'strict', 'loose'], space='sell', default='strict', optimize=False)
+    buy_triggers = CategoricalParameter(['superabs', 'strictest', 'stricter', 'strict', 'loose', 'looser', 'loosest', 'looseygoosey'], space='buy', default='loose', optimize=False)
+    sell_triggers = CategoricalParameter(['superabs', 'stricter', 'strict', 'loose'], space='sell', default='strict', optimize=False)
     
     # Buy hyperspace params:
     buy_params = {
-        'buy_triggers': 'loose',
+        'buy_triggers': 'superabs', # 'loose',
         'ha_buy_check': True,     
         'dmi_minus': 17,
         'fast_d_buy': 35,
@@ -61,7 +61,7 @@ class CryptoFrog(IStrategy):
 
     # Sell hyperspace params:
     sell_params = {
-        'sell_triggers': 'strict',
+        'sell_triggers': 'superabs', #'strict',
         'ha_sell_check': True,
         'cstp_bail_how': 'any',
         'cstp_bail_roc': -0.012,
@@ -432,6 +432,33 @@ class CryptoFrog(IStrategy):
                 )
             )            
         
+        if self.buy_triggers.value == 'superabs':
+            conditions.append(
+                (            
+                    (dataframe['msq_normabs'] >= 3)
+                    |
+                    (
+                        (
+                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value)
+                            &
+                            (dataframe['mfi'] < self.mfi_buy.value)
+                            &
+                            (dataframe['dmi_minus'] > self.dmi_minus.value)
+                            &
+                            (dataframe['adx'] >= self.adx.value)
+                            |
+                            (
+                                (dataframe['ssl-dir_1h'] == 'up')
+                                |
+                                (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
+                            )
+                        )
+                    )
+                    &
+                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                )
+            )
+        
         if self.buy_triggers.value == 'bbexp':
             conditions.append(
                 (
@@ -649,6 +676,33 @@ class CryptoFrog(IStrategy):
                 )
             )
         
+        if self.sell_triggers.value == 'superabs':
+            conditions.append(
+                ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                &                
+                (            
+                    (dataframe['msq_normabs'] >= 3)
+                    &
+                    (dataframe['ssl-dir_1h'] == 'up')
+                )
+                |
+                (
+                    (dataframe['ssl-dir_1h'] == 'up')
+                    |
+                    (
+                        (dataframe['mfi'] > self.mfi_sell.value)
+                        &
+                        (dataframe['dmi_plus'] > self.dmi_plus.value)
+                        &
+                        (dataframe['adx'] >= self.adx.value)
+                        &
+                        (dataframe['msq_normabs'] >= self.msq_normabs_sell.value * 0.95)
+                        |
+                        (qtpylib.crossed_below(dataframe['fastk'], dataframe['fastd']))
+                    )
+                )                
+            )
+                
         if self.sell_triggers.value == 'bbexp':
             conditions.append(
                 (
