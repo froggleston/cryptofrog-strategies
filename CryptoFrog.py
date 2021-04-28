@@ -25,11 +25,12 @@ from skopt.space import Dimension
 from functools import reduce
 
 class CryptoFrog(IStrategy):
-    adx = IntParameter(0, 100, default=25, optimize=True)
-    mfi_buy = IntParameter(0, 40, default=20, space='buy', optimize=True)
-    mfi_sell = IntParameter(51, 100, default=80, space='sell', optimize=True)
-    vfi_buy = IntParameter(-1, 1, default=0, space='buy', optimize=False)
-    vfi_sell = IntParameter(-1, 1, default=0, space='sell', optimize=False)
+    adx_buy = IntParameter(20, 80, default=25, space='buy', optimize=True)
+    adx_sell = IntParameter(20, 80, default=25, space='sell', optimize=True)
+    mfi_buy = IntParameter(10, 30, default=20, space='buy', optimize=True)
+    mfi_sell = IntParameter(70, 90, default=80, space='sell', optimize=True)
+    vfi_buy = DecimalParameter(-1, 1, default=0, space='buy', optimize=False)
+    vfi_sell = DecimalParameter(-1, 1, default=0, space='sell', optimize=False)
     dmi_minus = IntParameter(15, 45, default=30, space='buy', optimize=True)
     dmi_plus = IntParameter(15, 45, default=30, space='sell', optimize=True)
     srsi_d_buy = IntParameter(0, 50, default=30, space='buy', optimize=True)
@@ -39,46 +40,49 @@ class CryptoFrog(IStrategy):
     bbw_exp_buy = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
     bbw_exp_sell = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
     
-    msq_normabs_buy = IntParameter(-3.0, 3.0, default=2.2, space='buy', optimize=True)
-    msq_normabs_sell = IntParameter(-3.0, 3.0, default=2.2, space='sell', optimize=True)
+    msq_normabs_buy = DecimalParameter(1.9, 2.9, default=2.2, space='buy', optimize=True)
+    msq_normabs_sell = DecimalParameter(1.9, 2.9, default=2.2, space='sell', optimize=True)
     
     ha_buy_check = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
     ha_sell_check = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
-    buy_triggers = CategoricalParameter(['superabs', 'strictest', 'stricter', 'strict', 'loose', 'looser', 'loosest', 'looseygoosey'], space='buy', default='loose', optimize=False)
-    sell_triggers = CategoricalParameter(['superabs', 'stricter', 'strict', 'loose'], space='sell', default='strict', optimize=False)
+    buy_triggers = CategoricalParameter(['superabs', 'strictest', 'stricter', 'strict', 'loose', 'looser', 'loosest', 'looseygoosey'], space='buy', default='superabs', optimize=False)
+    sell_triggers = CategoricalParameter(['superabs', 'stricter', 'strict', 'loose'], space='sell', default='superabs', optimize=False)
+    
+    ## Quickly hyperopted with
+    ## freqtrade hyperopt --hyperopt-loss ShortTradeDurHyperOptLoss --spaces buy sell -s CryptoFrog -c cryptofrog.config.json -e 300 --timerange=20210410- -j -2
     
     # Buy hyperspace params:
     buy_params = {
         'buy_triggers': 'superabs', # 'loose',
-        'ha_buy_check': True,     
-        'dmi_minus': 17,
-        'fast_d_buy': 35,
-        'mfi_buy': 9,
-        'srsi_d_buy': 28,
-        'adx': 25,
-        'msq_normabs_buy': 2.2
+        'ha_buy_check': True,        
+        'adx_buy': 45,
+        'dmi_minus': 15,
+        'fast_d_buy': 49,
+        'mfi_buy': 28,
+        'msq_normabs_buy': 2.124,
+        'srsi_d_buy': 34
     }
 
     # Sell hyperspace params:
     sell_params = {
         'sell_triggers': 'superabs', #'strict',
-        'ha_sell_check': True,
-        'cstp_bail_how': 'any',
-        'cstp_bail_roc': -0.012,
-        'cstp_bail_time': 1414,
-        'cstp_threshold': -0.026,
-        'dmi_plus': 26,
+        'ha_sell_check': True,        
+        'adx_sell': 46,
+        'cstp_bail_how': 'time',
+        'cstp_bail_roc': -0.039,
+        'cstp_bail_time': 1000,
+        'cstp_threshold': -0.003,
+        'dmi_plus': 35,
         'droi_pullback': False,
-        'droi_pullback_amount': 0.006,
+        'droi_pullback_amount': 0.017,
         'droi_pullback_respect_table': False,
-        'droi_trend_type': 'ssl',
-        'fast_d_sell': 92,
-        'mfi_sell': 86,
-        'srsi_d_sell': 51,
-        'adx': 25,
-        'msq_normabs_sell': 2.2
+        'droi_trend_type': 'any',
+        'fast_d_sell': 54,
+        'mfi_sell': 78,
+        'msq_normabs_sell': 1.962,
+        'srsi_d_sell': 81
     }
-
+    
     use_custom_stoploss = False
     custom_stop = {
         # Linear Decay Parameters
@@ -106,7 +110,9 @@ class CryptoFrog(IStrategy):
     
     # effectively disable ROI and stoploss
     stoploss = custom_stop['decay-start']
-    minimal_roi = {"0": 10}
+    
+    # suggestion by @GeorgeZ to unclog some older trades
+    minimal_roi = {"1440": -1 , "4800": 0} # {"0": 10}
 
     # run "populate_indicators" only for new candle
     process_only_new_candles = False
@@ -325,10 +331,6 @@ class CryptoFrog(IStrategy):
         dataframe['msq_negadiv'] = msq_negadiv
         dataframe['msq_uptrend_buy'] = msq_uptrend_buy
         
-        dataframe['ttmsqueeze'] = self.TTMSqueeze(dataframe, window=general_period)
-        
-        #dataframe['msq_trend'] = msq_trend
-        
         # Volume Flow Indicator (MFI) for volume based on the direction of price movement
         dataframe['vfi'] = fta.VFI(dataframe, period=general_period)
         
@@ -411,11 +413,10 @@ class CryptoFrog(IStrategy):
                 (
                     (
                         (dataframe['close'] < dataframe['Smooth_HA_L'])
-                        |
+                        &
                         (
-                            (dataframe['kama_s'].round(1) >= dataframe['kama_ssma'].round(1))
+                            (dataframe['Smooth_HA_L'] < dataframe['kama_ssma'])
                             &
-                            #(qtpylib.crossed_above(dataframe['close'], dataframe['kama_f']))
                             (dataframe['kama_f'].round(1) <= dataframe['kama_s'].round(1))
                         )
                     )
@@ -423,12 +424,6 @@ class CryptoFrog(IStrategy):
                     (dataframe['emac_1h'] < dataframe['emao_1h'])
                     &
                     (dataframe['close'] < dataframe['emac_1h'])
-#                    &
-#                    (dataframe['ssl-dir_1h'] == 'up')
-#                    &
-#                    (
-#                        ((dataframe['msq_downtrend_1h'] != 0) & (dataframe['ssl-dir_1h'] != 'down'))
-#                    )
                 )
             )            
         
@@ -445,17 +440,15 @@ class CryptoFrog(IStrategy):
                             &
                             (dataframe['dmi_minus'] > self.dmi_minus.value)
                             &
-                            (dataframe['adx'] >= self.adx.value)
-                            |
-                            (
-                                (dataframe['ssl-dir_1h'] == 'up')
-                                |
-                                (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
-                            )
+                            (dataframe['adx'] >= self.adx_buy.value)
+#                            |
+#                            (
+#                                (dataframe['ssl-dir_1h'] == 'up')
+#                                |
+#                                (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
+#                            )
                         )
                     )
-                    &
-                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
                 )
             )
         
@@ -489,15 +482,13 @@ class CryptoFrog(IStrategy):
         if self.buy_triggers.value == 'strictest':
             conditions.append(
                 (
-                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
-                    &
                     (dataframe['ssl-dir_1h'] == 'up')
                     &
                     (dataframe['mfi'] < self.mfi_buy.value)
                     &
                     (dataframe['dmi_minus'] > self.dmi_minus.value)
                     &
-                    (dataframe['adx'] >= self.adx.value)
+                    (dataframe['adx'] >= self.adx_buy.value)
                     &
                     (dataframe['msq_normabs'] >= self.msq_normabs_buy.value)
                     &
@@ -508,22 +499,18 @@ class CryptoFrog(IStrategy):
         if self.buy_triggers.value == 'stricter':
             conditions.append(
                 (
-                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                    (dataframe['ssl-dir_1h'] == 'up')
                     &
                     (
-                        (dataframe['ssl-dir_1h'] == 'up')
+                        (dataframe['mfi'] < self.mfi_buy.value)
                         &
-                        (
-                            (dataframe['mfi'] < self.mfi_buy.value)
-                            &
-                            (dataframe['dmi_minus'] > self.dmi_minus.value)
-                            &
-                            (dataframe['adx'] >= self.adx.value * 0.8)
-                            &
-                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.9)
-                            &
-                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
-                        )
+                        (dataframe['dmi_minus'] > self.dmi_minus.value)
+                        &
+                        (dataframe['adx'] >= self.adx_buy.value * 0.8)
+                        &
+                        (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.9)
+                        &
+                        (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
                     )
                 )
             )
@@ -531,22 +518,18 @@ class CryptoFrog(IStrategy):
         if self.buy_triggers.value == 'strict':
             conditions.append(
                 (
-                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                    (dataframe['ssl-dir_1h'] == 'up')
                     &
                     (
-                        (dataframe['ssl-dir_1h'] == 'up')
+                        (dataframe['mfi'] < self.mfi_buy.value)
                         &
-                        (
-                            (dataframe['mfi'] < self.mfi_buy.value)
-                            &
-                            (dataframe['dmi_minus'] > self.dmi_minus.value)
-                            &
-                            (dataframe['adx'] >= self.adx.value * 0.8)
-                            &
-                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.9)
-                            |
-                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
-                        )
+                        (dataframe['dmi_minus'] > self.dmi_minus.value)
+                        &
+                        (dataframe['adx'] >= self.adx_buy.value * 0.8)
+                        &
+                        (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.9)
+                        |
+                        (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
                     )
                 )
             )
@@ -554,22 +537,18 @@ class CryptoFrog(IStrategy):
         if self.buy_triggers.value == 'loose':
             conditions.append(
                 (
-                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
+                    (dataframe['msq_normabs'] >= self.msq_normabs_buy.value)
                     &
+                    (dataframe['mfi'] < self.mfi_buy.value)
+                    &
+                    (dataframe['dmi_minus'] > self.dmi_minus.value)
+                    &
+                    (dataframe['adx'] >= self.adx_buy.value)
+                    |
                     (
-                        (dataframe['msq_normabs'] >= self.msq_normabs_buy.value)
-                        &
-                        (dataframe['mfi'] < self.mfi_buy.value)
-                        &
-                        (dataframe['dmi_minus'] > self.dmi_minus.value)
-                        &
-                        (dataframe['adx'] >= self.adx.value)
+                        (dataframe['ssl-dir_1h'] == 'up')
                         |
-                        (
-                            (dataframe['ssl-dir_1h'] == 'up')
-                            |
-                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
-                        )
+                        (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
                     )
                 )
             )            
@@ -577,22 +556,18 @@ class CryptoFrog(IStrategy):
         if self.buy_triggers.value == 'looser':
             conditions.append(
                 (
-                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
-                    &
+                    (dataframe['ssl-dir_1h'] == 'up')
+                    |
                     (
-                        (dataframe['ssl-dir_1h'] == 'up')
+                        (dataframe['mfi'] < self.mfi_buy.value)
+                        &
+                        (dataframe['dmi_minus'] > self.dmi_minus.value)
+                        &
+                        (dataframe['adx'] >= self.adx_buy.value * 0.9)
+                        &
+                        (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.9)
                         |
-                        (
-                            (dataframe['mfi'] < self.mfi_buy.value)
-                            &
-                            (dataframe['dmi_minus'] > self.dmi_minus.value)
-                            &
-                            (dataframe['adx'] >= self.adx.value * 0.9)
-                            &
-                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.9)
-                            |
-                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
-                        )
+                        (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
                     )
                 )
             )               
@@ -600,22 +575,18 @@ class CryptoFrog(IStrategy):
         if self.buy_triggers.value == 'loosest':
             conditions.append(
                 (
-                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
-                    &
+                    (dataframe['ssl-dir_1h'] == 'up')
+                    |
                     (
-                        (dataframe['ssl-dir_1h'] == 'up')
+                        (dataframe['mfi'] < self.mfi_buy.value)
+                        &
+                        (dataframe['dmi_minus'] > self.dmi_minus.value)
+                        &
+                        (dataframe['adx'] >= self.adx_buy.value * 0.8)
+                        &
+                        (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.8)
                         |
-                        (
-                            (dataframe['mfi'] < self.mfi_buy.value)
-                            &
-                            (dataframe['dmi_minus'] > self.dmi_minus.value)
-                            &
-                            (dataframe['adx'] >= self.adx.value * 0.8)
-                            &
-                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.8)
-                            |
-                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
-                        )
+                        (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
                     )
                 )
             )            
@@ -623,25 +594,27 @@ class CryptoFrog(IStrategy):
         if self.buy_triggers.value == 'looseygoosey':
             conditions.append(
                 (
-                    ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
-                    &
+                    (dataframe['ssl-dir_1h'] == 'up')
+                    |
                     (
-                        (dataframe['ssl-dir_1h'] == 'up')
+                        (dataframe['mfi'] < self.mfi_buy.value)
+                        &
+                        (dataframe['dmi_minus'] > self.dmi_minus.value)
+                        &
+                        (dataframe['adx'] >= self.adx_buy.value * 0.7)
+                        &
+                        (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.8)
                         |
-                        (
-                            (dataframe['mfi'] < self.mfi_buy.value)
-                            &
-                            (dataframe['dmi_minus'] > self.dmi_minus.value)
-                            &
-                            (dataframe['adx'] >= self.adx.value * 0.7)
-                            &
-                            (dataframe['msq_normabs'] >= self.msq_normabs_buy.value * 0.8)
-                            |
-                            (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
-                        )
+                        (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
                     )
                 )
             )                 
+        
+        conditions.append(
+            (dataframe['vfi'] < self.vfi_buy.value)
+            &
+            (dataframe['volume'] > 0)
+        )
         
         dataframe.loc[
             (
@@ -660,9 +633,10 @@ class CryptoFrog(IStrategy):
                 (
                     (
                         (dataframe['close'] > dataframe['Smooth_HA_H'])
-                        |
+                        &
                         (
-                            (dataframe['kama_s'].round(1) <= dataframe['kama_ssma'].round(1))
+                            # (dataframe['kama_s'].round(1) <= dataframe['kama_ssma'].round(1))
+                            (dataframe['Smooth_HA_H'] > dataframe['kama_ssma'])                            
                             &
                             #(qtpylib.crossed_below(dataframe['close'], dataframe['kama_f'])) ## crosses over?
                             (dataframe['kama_f'].round(1) >= dataframe['kama_s'].round(1))
@@ -678,9 +652,7 @@ class CryptoFrog(IStrategy):
         
         if self.sell_triggers.value == 'superabs':
             conditions.append(
-                ((dataframe['vfi'] < self.vfi_buy.value) & (dataframe['volume'] > 0))
-                &                
-                (            
+                (
                     (dataframe['msq_normabs'] >= 3)
                     &
                     (dataframe['ssl-dir_1h'] == 'up')
@@ -694,13 +666,13 @@ class CryptoFrog(IStrategy):
                         &
                         (dataframe['dmi_plus'] > self.dmi_plus.value)
                         &
-                        (dataframe['adx'] >= self.adx.value)
+                        (dataframe['adx'] >= self.adx_sell.value)
                         &
                         (dataframe['msq_normabs'] >= self.msq_normabs_sell.value * 0.95)
                         |
                         (qtpylib.crossed_below(dataframe['fastk'], dataframe['fastd']))
                     )
-                )                
+                )
             )
                 
         if self.sell_triggers.value == 'bbexp':
@@ -730,7 +702,7 @@ class CryptoFrog(IStrategy):
                         &
                         (dataframe['dmi_plus'] > self.dmi_plus.value)
                         &
-                        (dataframe['adx'] >= self.adx.value)
+                        (dataframe['adx'] >= self.adx_sell.value)
                         &
                         (dataframe['msq_normabs'] >= self.msq_normabs_sell.value)
                         &
@@ -749,7 +721,7 @@ class CryptoFrog(IStrategy):
                         &
                         (dataframe['dmi_plus'] > self.dmi_plus.value)
                         &
-                        (dataframe['adx'] >= self.adx.value)
+                        (dataframe['adx'] >= self.adx_sell.value)
                         &
                         (dataframe['msq_normabs'] >= self.msq_normabs_sell.value)
                         |
@@ -768,7 +740,7 @@ class CryptoFrog(IStrategy):
                         &
                         (dataframe['dmi_plus'] > self.dmi_plus.value)
                         &
-                        (dataframe['adx'] >= self.adx.value)
+                        (dataframe['adx'] >= self.adx_sell.value)
                         &
                         (dataframe['msq_normabs'] >= self.msq_normabs_sell.value * 0.95)
                         |
@@ -776,7 +748,7 @@ class CryptoFrog(IStrategy):
                     )
                 )
             )
-
+        
         conditions.append(
             (dataframe['vfi'] > self.vfi_sell.value)
             &
@@ -800,12 +772,6 @@ class CryptoFrog(IStrategy):
 #            else:
 #                return True
 #        return True
-
-#    def custom_stoploss(self, pair: str, trade: 'Trade', current_time: datetime,
-#                        current_rate: float, current_profit: float, **kwargs) -> float:
-#        if (current_time - timedelta(minutes=2200) > trade.open_date_utc) & (current_profit < 0):
-#            return 0.001
-#        return 0.5
 
     def custom_stoploss(self, pair: str, trade: 'Trade', current_time: datetime,
                         current_rate: float, current_profit: float, **kwargs) -> float:
@@ -1100,27 +1066,6 @@ class CryptoFrog(IStrategy):
             'msq_uptrend_buy'] = 1
 
         return df['msq_closema'], df['msq_refma'], df['msq_sqzma'], df['msq_abs'], df['msq_normabs'], df['msq_rollstd'], df['msq_rollvar'], df['msq_uptrend'], df['msq_downtrend'], df['msq_posidiv'], df['msq_negadiv'], df['msq_uptrend_buy']    
-    
-    def TTMSqueeze(self, dataframe, window=20):
-        df = dataframe.copy()
-
-        df['20sma'] = df['close'].rolling(window=window).mean()
-        df['stddev'] = df['close'].rolling(window=window).std()
-        df['lower_band'] = df['20sma'] - (2 * df['stddev'])
-        df['upper_band'] = df['20sma'] + (2 * df['stddev'])
-
-        df['TR'] = abs(df['high'] - df['low'])
-        df['ATR'] = df['TR'].rolling(window=window).mean()
-
-        df['lower_keltner'] = df['20sma'] - (df['ATR'] * 1.5)
-        df['upper_keltner'] = df['20sma'] + (df['ATR'] * 1.5)
-
-        def in_squeeze(df):
-            return df['lower_band'] > df['lower_keltner'] and df['upper_band'] < df['upper_keltner']
-
-        df['squeeze_on'] = df.apply(in_squeeze, axis=1)
-        
-        return df['squeeze_on']
     
     # nested hyperopt class
     class HyperOpt:

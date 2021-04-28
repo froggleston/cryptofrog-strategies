@@ -41,7 +41,7 @@
         },
         "pair_whitelist":[],
         "pair_blacklist": [
-            "GBP/USDT", "EUR/USDT", "BUSD/USDT", "USDC/USDT"
+            "GBP/USDT", "EUR/USDT", "BUSD/USDT", "USDC/USDT", ".*UP/USDT", ".*DOWN/USDT"
         ]
     },
 
