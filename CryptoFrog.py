@@ -40,55 +40,128 @@ class CryptoFrog(IStrategy):
     bbw_exp_buy = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
     bbw_exp_sell = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
     
-    msq_normabs_buy = DecimalParameter(1.9, 2.9, default=2.2, space='buy', optimize=True)
-    msq_normabs_sell = DecimalParameter(1.9, 2.9, default=2.2, space='sell', optimize=True)
+    msq_normabs_buy = DecimalParameter(1.0, 5.0, default=2.2, space='buy', optimize=True)
+    msq_normabs_buy_loosener = DecimalParameter(0, 1, default=0.7, space='buy', optimize=True)
+    msq_normabs_sell = DecimalParameter(1.0, 5.0, default=2.2, space='sell', optimize=True)
     
     ha_buy_check = CategoricalParameter([True, False], default=True, space='buy', optimize=False)
     ha_sell_check = CategoricalParameter([True, False], default=True, space='sell', optimize=False)
-    buy_triggers = CategoricalParameter(['superabs', 'strictest', 'stricter', 'strict', 'loose', 'looser', 'loosest', 'looseygoosey'], space='buy', default='superabs', optimize=False)
+    # buy_triggers = CategoricalParameter(['superabs', 'flexiabs', 'strictest', 'stricter', 'strict', 'loose', 'looser', 'loosest', 'looseygoosey'], space='buy', default='superabs', optimize=False)
+    buy_triggers = CategoricalParameter(['superabs', 'flexiabs'], space='buy', default='superabs', optimize=True)    
     sell_triggers = CategoricalParameter(['superabs', 'stricter', 'strict', 'loose'], space='sell', default='superabs', optimize=False)
     
     ## Quickly hyperopted with
     ## freqtrade hyperopt --hyperopt-loss ShortTradeDurHyperOptLoss --spaces buy sell -s CryptoFrog -c cryptofrog.config.json -e 300 --timerange=20210410- -j -2
     
     # Buy hyperspace params:
+#    buy_params = {
+#        'buy_triggers': 'flexiabs', # 'loose',
+#        'ha_buy_check': True,        
+##        'adx_buy': 45,
+##        'dmi_minus': 15,
+##        'fast_d_buy': 49,
+##        'mfi_buy': 28,
+##        'msq_normabs_buy': 2.124,
+##        'srsi_d_buy': 34
+#        
+#        "adx_buy": 30,
+#        "dmi_minus": 22,
+#        "fast_d_buy": 20,
+#        "mfi_buy": 28,
+#        "msq_normabs_buy": 2,
+#        "msq_normabs_buy_loosener": 0.5,
+#        "srsi_d_buy": 30
+#    }
+#
+#    # Sell hyperspace params:
+#    sell_params = {
+#        'sell_triggers': 'superabs', #'strict',
+#        'ha_sell_check': True,        
+##        'adx_sell': 46,
+##        'cstp_bail_how': 'time',
+##        'cstp_bail_roc': -0.039,
+##        'cstp_bail_time': 1000,
+##        'cstp_threshold': -0.003,
+##        'dmi_plus': 35,
+##        'droi_pullback': False,
+##        'droi_pullback_amount': 0.017,
+##        'droi_pullback_respect_table': False,
+##        'droi_trend_type': 'any',
+##        'fast_d_sell': 54,
+##        'mfi_sell': 78,
+##        'msq_normabs_sell': 1.962,
+##        'srsi_d_sell': 81
+#        
+#        "cstp_bail_how": "any",
+#        "cstp_bail_roc": -0.033,
+#        "cstp_bail_time": 1104,
+#        "cstp_threshold": -0.048,
+#        "droi_pullback": False,
+#        "droi_pullback_amount": 0.018,
+#        "droi_pullback_respect_table": False,
+#        "droi_trend_type": "ssl",        
+#        
+#        "adx_sell": 24,
+#        "dmi_plus": 25,
+#        "fast_d_sell": 54,
+#        "mfi_sell": 74,
+#        "msq_normabs_sell": 2.293,
+#        "srsi_d_sell": 68
+#    }
+    
+    # Buy hyperspace params:
     buy_params = {
-        'buy_triggers': 'superabs', # 'loose',
+        'buy_triggers': 'flexiabs',
         'ha_buy_check': True,        
-        'adx_buy': 45,
-        'dmi_minus': 15,
-        'fast_d_buy': 49,
-        'mfi_buy': 28,
-        'msq_normabs_buy': 2.124,
-        'srsi_d_buy': 34
+        'adx_buy': 34,
+        'dmi_minus': 36,
+        'fast_d_buy': 18,
+        'mfi_buy': 23,
+        'msq_normabs_buy': 1.283,
+        'msq_normabs_buy_loosener': 0.069,
+        'srsi_d_buy': 15
     }
 
     # Sell hyperspace params:
     sell_params = {
         'sell_triggers': 'superabs', #'strict',
         'ha_sell_check': True,        
-        'adx_sell': 46,
-        'cstp_bail_how': 'time',
-        'cstp_bail_roc': -0.039,
-        'cstp_bail_time': 1000,
-        'cstp_threshold': -0.003,
-        'dmi_plus': 35,
-        'droi_pullback': False,
-        'droi_pullback_amount': 0.017,
+        'adx_sell': 43,
+        'cstp_bail_how': 'any',
+        'cstp_bail_roc': -0.018,
+        'cstp_bail_time': 1282,
+        'cstp_threshold': -0.006,
+        'dmi_plus': 29,
+        'droi_pullback': True,
+        'droi_pullback_amount': 0.013,
         'droi_pullback_respect_table': False,
-        'droi_trend_type': 'any',
-        'fast_d_sell': 54,
-        'mfi_sell': 78,
-        'msq_normabs_sell': 1.962,
-        'srsi_d_sell': 81
-    }
+        'droi_trend_type': 'ssl',
+        'fast_d_sell': 65,
+        'mfi_sell': 86,
+        'msq_normabs_sell': 1.461,
+        'srsi_d_sell': 93,
+        'stoploss_method': 'simpletime'
+    }   
     
-    use_custom_stoploss = False
+    use_custom_stoploss = True
+    ## if using a custom_stoploss, open up the opportunity for it to be optimised
+    stoploss_method = CategoricalParameter(['simpletime', 'riskreward', 'roctime', 'any'], space='sell', default='simpletime', optimize=use_custom_stoploss)
+    
+    stoploss = -0.98
+    
+    custom_info = {
+        'stoploss_method': stoploss_method,
+        'initial_stoploss': stoploss,
+        'initial_stoploss_modifier': 1,
+        'risk_reward_ratio': 1.5,
+        'trailing_stoploss_modifier': 2
+    }
+
     custom_stop = {
         # Linear Decay Parameters
-        'decay-time': 1080, # 133, # minutes to reach end, I find it works well to match this to the final ROI value - default 1080
+        'decay-time': 2880, # 133, # minutes to reach end, I find it works well to match this to the final ROI value - default 1080
         'decay-delay': 0,         # minutes to wait before decay starts
-        'decay-start': -0.98, # -0.98,     # starting value: should be the same or smaller than initial stoploss - default -0.30
+        'decay-start': stoploss, # -0.98,     # starting value: should be the same or smaller than initial stoploss - default -0.30
         'decay-end': -0.02,       # ending value - default -0.03
         # Profit and TA  
         'cur-min-diff': 0.03,     # diff between current and minimum profit to move stoploss up to min profit point
@@ -97,22 +170,14 @@ class CryptoFrog(IStrategy):
         'rmi-trend': 50,          # rmi-slow value to pause stoploss decay
         'bail-how': 'immediate',  # set the stoploss to the atr offset below current price, or immediate
         # Positive Trailing
-        'pos-trail': True,        # enable trailing once positive  
+        'pos-trail': False,        # enable trailing once positive  
         'pos-threshold': 0.005,   # trail after how far positive
         'pos-trail-dist': 0.015,   # how far behind to place the trail
-    }
-
-    custom_info = {
-        'initial_stoploss_modifier': 1,
-        'risk_reward_ratio': 1.5,
-        'trailing_stoploss_modifier': 2
-    }
-    
-    # effectively disable ROI and stoploss
-    stoploss = custom_stop['decay-start']
+    }    
     
     # suggestion by @GeorgeZ to unclog some older trades
-    minimal_roi = {"1440": -1 , "4800": 0} # {"0": 10}
+    # minimal_roi = {"1440": -1 , "4800": 0}
+    minimal_roi = {"0": 10}
 
     # run "populate_indicators" only for new candle
     process_only_new_candles = False
@@ -317,7 +382,7 @@ class CryptoFrog(IStrategy):
         dataframe['mfi'] = pta.mfi(dataframe['high'], dataframe['low'], dataframe['close'], dataframe['volume'], length=general_period)
 
         ## squeezies to detect quiet periods
-        msq_closema, msq_refma, msq_sqzma, msq_abs, msq_normabs, msq_rollstd, msq_rollvar, msq_uptrend, msq_downtrend, msq_posidiv, msq_negadiv, msq_uptrend_buy = self.MadSqueeze(dataframe, period=general_period)
+        msq_closema, msq_refma, msq_sqzma, msq_abs, msq_normabs, msq_rollstd, msq_rollvar, msq_uptrend, msq_downtrend, msq_posidiv, msq_negadiv, msq_uptrend_buy = self.MadSqueeze(dataframe, period=34, ref=21, sqzlen=5) # period=general_period)
         dataframe['msq_closema'] = msq_closema
         dataframe['msq_refma'] = msq_refma
         dataframe['msq_sqzma'] = msq_sqzma
@@ -441,17 +506,40 @@ class CryptoFrog(IStrategy):
                             (dataframe['dmi_minus'] > self.dmi_minus.value)
                             &
                             (dataframe['adx'] >= self.adx_buy.value)
-#                            |
-#                            (
-#                                (dataframe['ssl-dir_1h'] == 'up')
-#                                |
-#                                (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
-#                            )
                         )
                     )
                 )
             )
         
+        if self.buy_triggers.value == 'flexiabs':
+            conditions.append(
+                (            
+                    (dataframe['msq_normabs'] >= 3)
+                    |
+                    (
+                        (
+                            (
+                                (dataframe['msq_normabs'] >= self.msq_normabs_buy.value)
+                                |
+                                (
+                                    (dataframe['ssl-dir_1h'] == 'up')
+                                    &
+                                    (dataframe['msq_normabs'] >= (self.msq_normabs_buy.value * self.msq_normabs_buy_loosener.value))
+                                    &
+                                    (qtpylib.crossed_above(dataframe['fastk'], dataframe['fastd']))
+                                )
+                            )
+                            &
+                            (dataframe['mfi'] < self.mfi_buy.value)
+                            &
+                            (dataframe['dmi_minus'] > self.dmi_minus.value)
+                            &
+                            (dataframe['adx'] >= self.adx_buy.value)
+                        )
+                    )
+                )
+            )
+            
         if self.buy_triggers.value == 'bbexp':
             conditions.append(
                 (
@@ -763,17 +851,33 @@ class CryptoFrog(IStrategy):
         
         return dataframe
 
-#    def confirm_trade_exit(self, pair: str, trade: Trade, order_type: str, amount: float,
-#                           rate: float, time_in_force: str, sell_reason: str, **kwargs) -> bool:
-#        # activate sell signal only when profit is above 1.5% and below -1.5%
-#        if sell_reason == 'sell_signal':
-#            if 0.015 > trade.calc_profit_ratio(rate) > -0.015:
-#                return False
-#            else:
-#                return True
-#        return True
-
     def custom_stoploss(self, pair: str, trade: 'Trade', current_time: datetime,
+                        current_rate: float, current_profit: float, **kwargs) -> float:
+        if (self.custom_info['stoploss_method'] == "simpletime") | (self.custom_info['stoploss_method'] == "any"):
+            return custom_stoploss_simpletime(pair, trade, current_time, current_rate, current_profit, **kwargs)
+        if (self.custom_info['stoploss_method'] == "riskreward") | (self.custom_info['stoploss_method'] == "any"):
+            return custom_stoploss_riskreward(pair, trade, current_time, current_rate, current_profit, **kwargs)
+        if (self.custom_info['stoploss_method'] == "roctime") | (self.custom_info['stoploss_method'] == "any"):
+            return custom_stoploss_roctime(pair, trade, current_time, current_rate, current_profit, **kwargs)
+        else:
+            return self.custom_info['initial_stoploss']
+    
+    def custom_stoploss_simpletime(self, pair: str, trade: 'Trade', current_time: datetime,
+                        current_rate: float, current_profit: float, **kwargs) -> float:
+        # Make sure you have the longest interval first - these conditions are evaluated from top to bottom.
+        if (current_profit > 0):
+            if (current_time - timedelta(minutes=420) > trade.open_date_utc) & (current_profit < 0.01):
+                return -0.001
+            if (current_time - timedelta(minutes=360) > trade.open_date_utc) & (current_profit < 0.02):
+                return -0.001
+        else:
+            if (current_time - timedelta(minutes=2160) > trade.open_date_utc) & ((current_profit < -0.06) & (current_profit > -0.10)):
+                return -0.001
+            if (current_time - timedelta(minutes=1440) > trade.open_date_utc) & ((current_profit < -0.01) & (current_profit > -0.06)):
+                return -0.001
+        return -0.98
+
+    def custom_stoploss_riskreward(self, pair: str, trade: 'Trade', current_time: datetime,
                         current_rate: float, current_profit: float, **kwargs) -> float:
 
         result = 1
@@ -842,7 +946,7 @@ class CryptoFrog(IStrategy):
     
     Custom Stoploss 
     """ 
-    def custom_stoploss1(self, pair: str, trade: 'Trade', current_time: datetime, current_rate: float, current_profit: float, **kwargs) -> float:
+    def custom_stoploss_roctime(self, pair: str, trade: 'Trade', current_time: datetime, current_rate: float, current_profit: float, **kwargs) -> float:
         # if the trade is over 5 and under 20 minutes and dropped under 5%, then I set stoploss -0.06.
         # if more than 180 min, and is under 10% of its maximum or reached -0.14 at a point and recovered. Then if over 1200 minutes etc
         
@@ -1067,15 +1171,6 @@ class CryptoFrog(IStrategy):
 
         return df['msq_closema'], df['msq_refma'], df['msq_sqzma'], df['msq_abs'], df['msq_normabs'], df['msq_rollstd'], df['msq_rollvar'], df['msq_uptrend'], df['msq_downtrend'], df['msq_posidiv'], df['msq_negadiv'], df['msq_uptrend_buy']    
     
-    # nested hyperopt class
-    class HyperOpt:
-
-        # defining as dummy, so that no error is thrown about missing
-        # sell indicator space when hyperopting for all spaces
-        @staticmethod
-        def indicator_space() -> List[Dimension]:
-            return []
-        
 def RMI(dataframe, *, length=20, mom=5):
     """
     Source: https://github.com/freqtrade/technical/blob/master/technical/indicators/indicators.py#L912
