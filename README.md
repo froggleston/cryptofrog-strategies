@@ -1,6 +1,8 @@
 # cryptofrog-strategies
 CryptoFrog - My First Strategy for freqtrade
 
+**_DO NOT USE THIS FOR LIVE TRADING_**
+
 # "Release" Notes
 
 - 2021-04-26: The informatives branch now includes a big refactor to include new KAMA and Madrid Squeeze code. Hyperopting now in the main strategy. I'll pull this into main whenever I feel it's ready.
